@@ -240,7 +240,6 @@ export function CreateEventForm() {
                                 </FormItem>
                             )}
                         />
-
                         <FormField
                             control={form.control}
                             name="artist_id"

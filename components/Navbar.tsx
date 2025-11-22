@@ -14,6 +14,7 @@ export function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const pathname = usePathname();
     const router = useRouter();
     const isHome = pathname === '/';
@@ -39,6 +40,21 @@ export function Navbar() {
 
         return () => subscription.unsubscribe();
     }, []);
+
+    useEffect(() => {
+        if (user) {
+            supabase
+                .from('studios')
+                .select('logo_url')
+                .eq('id', user.id)
+                .single()
+                .then(({ data }) => {
+                    if (data?.logo_url) setLogoUrl(data.logo_url);
+                });
+        } else {
+            setLogoUrl(null);
+        }
+    }, [user]);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -109,7 +125,11 @@ export function Navbar() {
                                         : 'bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white hover:text-black'
                                         }`}
                                 >
-                                    <LayoutDashboard size={16} className="mr-2" />
+                                    {logoUrl ? (
+                                        <img src={logoUrl} alt="Studio Logo" className="w-5 h-5 rounded-full mr-2 object-cover border border-white/20" />
+                                    ) : (
+                                        <LayoutDashboard size={16} className="mr-2" />
+                                    )}
                                     Dashboard
                                 </Button>
                                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">

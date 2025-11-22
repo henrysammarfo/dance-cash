@@ -31,6 +31,12 @@ export default async function SignupPage({ params }: { params: { eventId: string
         notFound();
     }
 
+    const { count: currentSignups } = await supabase
+        .from('signups')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', params.eventId)
+        .eq('status', 'confirmed');
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black py-12">
             <div className="container mx-auto px-4">
@@ -85,7 +91,11 @@ export default async function SignupPage({ params }: { params: { eventId: string
                             </p>
                         </div>
 
-                        <SignupForm eventId={event.id} />
+                        <SignupForm
+                            eventId={event.id}
+                            capacity={event.capacity}
+                            currentSignups={currentSignups}
+                        />
                     </div>
                 </div>
             </div>

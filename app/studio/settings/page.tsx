@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Settings, Save } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function StudioSettingsPage() {
     const router = useRouter();
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [studio, setStudio] = useState({
@@ -55,7 +56,11 @@ export default function StudioSettingsPage() {
             }
         } catch (error) {
             console.error('Error fetching studio data:', error);
-            toast.error('Failed to load studio data');
+            toast({
+                title: 'Error',
+                description: 'Failed to load studio data',
+                variant: 'destructive',
+            });
         } finally {
             setLoading(false);
         }
@@ -71,7 +76,11 @@ export default function StudioSettingsPage() {
 
             // Validate BCH address
             if (studio.bch_address && !studio.bch_address.startsWith('bchtest:')) {
-                toast.error('BCH address must start with bchtest: for Chipnet');
+                toast({
+                    title: 'Invalid Address',
+                    description: 'BCH address must start with bchtest: for Chipnet',
+                    variant: 'destructive',
+                });
                 setSaving(false);
                 return;
             }
@@ -87,10 +96,17 @@ export default function StudioSettingsPage() {
 
             if (error) throw error;
 
-            toast.success('Settings saved successfully!');
+            toast({
+                title: 'Success',
+                description: 'Settings saved successfully!',
+            });
         } catch (error) {
             console.error('Error saving settings:', error);
-            toast.error('Failed to save settings');
+            toast({
+                title: 'Error',
+                description: 'Failed to save settings',
+                variant: 'destructive',
+            });
         } finally {
             setSaving(false);
         }

@@ -24,11 +24,16 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 
 interface SignupFormProps {
     eventId: string;
+    capacity: number;
+    currentSignups: number | null;
 }
 
-export function SignupForm({ eventId }: SignupFormProps) {
+export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const confirmedCount = currentSignups || 0;
+    const isSoldOut = confirmedCount >= capacity;
+    const spotsLeft = capacity - confirmedCount;
 
     const form = useForm<SignupFormValues>({
         resolver: zodResolver(signupSchema),
@@ -41,8 +46,13 @@ export function SignupForm({ eventId }: SignupFormProps) {
     });
 
     const onSubmit = async (data: SignupFormValues) => {
+        if (isSoldOut) return;
+
         setIsLoading(true);
         try {
+            // Double check capacity on client side before submission (optional but good)
+            // For now, we rely on the server-passed prop + optimistic UI
+
             // Insert into Supabase
             const { data: signup, error } = await supabase
                 .from('signups')
@@ -76,8 +86,28 @@ export function SignupForm({ eventId }: SignupFormProps) {
         }
     };
 
+    if (isSoldOut) {
+        return (
+            <div className="text-center py-8">
+                <div className="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl mb-4 inline-block">
+                    <p className="font-bold text-lg">Event Sold Out</p>
+                </div>
+                <p className="text-gray-500 dark:text-gray-400">
+                    Sorry, all {capacity} spots have been taken.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/50 p-4 rounded-lg mb-6">
+                <p className="text-sm text-purple-700 dark:text-purple-300 font-medium flex items-center">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                    Only {spotsLeft} spots remaining!
+                </p>
+            </div>
+
             <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
