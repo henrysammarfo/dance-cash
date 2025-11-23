@@ -30,7 +30,13 @@ const eventSchema = z.object({
 
 type EventFormValues = z.infer<typeof eventSchema>;
 
-export function CreateEventForm() {
+import { Event } from '@/types';
+
+interface CreateEventFormProps {
+    initialData?: Event;
+}
+
+export function CreateEventForm({ initialData }: CreateEventFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [artists, setArtists] = useState<{ id: string; name: string }[]>([]);
@@ -69,16 +75,16 @@ export function CreateEventForm() {
     const form = useForm<EventFormValues>({
         resolver: zodResolver(eventSchema),
         defaultValues: {
-            name: '',
-            description: '',
-            date: '',
-            time: '',
-            location: '',
-            style: '',
-            teacher: '',
-            price: 0,
-            capacity: 20,
-            artist_id: '',
+            name: initialData?.title || '',
+            description: initialData?.description || '',
+            date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : '',
+            time: initialData?.time || '',
+            location: initialData?.location || '',
+            style: initialData?.style || '',
+            teacher: initialData?.teacher || '',
+            price: initialData?.price || 0,
+            capacity: initialData?.capacity || 20,
+            artist_id: initialData?.artist_id || '',
         },
     });
 
@@ -91,7 +97,7 @@ export function CreateEventForm() {
                 throw new Error('You must be logged in to create an event');
             }
 
-            let imageUrl = null;
+            let imageUrl = initialData?.image_url || null;
 
             if (imageFile) {
                 const fileExt = imageFile.name.split('.').pop();
@@ -99,7 +105,7 @@ export function CreateEventForm() {
                 const filePath = `${user.id}/${fileName}`;
 
                 const { error: uploadError } = await supabase.storage
-                    .from('events')
+                    .from('event-banners')
                     .upload(filePath, imageFile);
 
                 if (uploadError) {
@@ -111,42 +117,71 @@ export function CreateEventForm() {
                     });
                 } else {
                     const { data: { publicUrl } } = supabase.storage
-                        .from('events')
+                        .from('event-banners')
                         .getPublicUrl(filePath);
                     imageUrl = publicUrl;
                 }
             }
 
-            const { error } = await supabase
-                .from('events')
-                .insert({
-                    studio_id: user.id,
-                    name: data.name,
-                    description: data.description,
-                    date: data.date,
-                    time: data.time,
-                    location: data.location,
-                    style: data.style,
-                    teacher: data.teacher,
-                    price_usd: data.price,
-                    capacity: data.capacity,
-                    banner_url: imageUrl,
-                    artist_id: data.artist_id || null,
+            if (initialData) {
+                // Update existing event
+                const { error } = await supabase
+                    .from('events')
+                    .update({
+                        title: data.name,
+                        description: data.description,
+                        date: data.date,
+                        time: data.time,
+                        location: data.location,
+                        style: data.style,
+                        teacher: data.teacher,
+                        price: data.price,
+                        capacity: data.capacity,
+                        image_url: imageUrl,
+                        artist_id: data.artist_id || null,
+                    })
+                    .eq('id', initialData.id);
+
+                if (error) throw error;
+
+                toast({
+                    title: 'Success!',
+                    description: 'Event updated successfully!',
                 });
+            } else {
+                // Create new event
+                const { error } = await supabase
+                    .from('events')
+                    .insert({
+                        studio_id: user.id,
+                        title: data.name,
+                        description: data.description,
+                        date: data.date,
+                        time: data.time,
+                        location: data.location,
+                        style: data.style,
+                        teacher: data.teacher,
+                        price: data.price,
+                        capacity: data.capacity,
+                        image_url: imageUrl,
+                        artist_id: data.artist_id || null,
+                    });
 
-            if (error) throw error;
+                if (error) throw error;
 
-            toast({
-                title: 'Success!',
-                description: 'Event created successfully!',
-            });
+                toast({
+                    title: 'Success!',
+                    description: 'Event created successfully!',
+                });
+            }
+
             router.push('/studio/dashboard');
             router.refresh();
         } catch (error: any) {
-            console.error('Create event error:', error);
+            console.error('Save event error:', error);
             toast({
                 title: 'Error',
-                description: error.message || 'Failed to create event.',
+                description: error.message || 'Failed to save event.',
                 variant: 'destructive',
             });
         } finally {

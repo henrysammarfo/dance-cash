@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Calendar, Users, DollarSign, TrendingUp, User } from 'lucide-react';
+import { Plus, Calendar, Users, DollarSign, TrendingUp, User, Trash2, Edit, Eye } from 'lucide-react';
 import { CreateEventForm } from '@/components/studio/CreateEventForm';
 import { ArtistForm } from '@/components/studio/ArtistForm';
 import { Event, Signup, Artist } from '@/types';
@@ -70,6 +70,38 @@ export default function StudioDashboard() {
             console.error('Error fetching dashboard data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const deleteEvent = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this event?')) return;
+
+        const { error } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting event:', error);
+            alert('Failed to delete event');
+        } else {
+            fetchDashboardData();
+        }
+    };
+
+    const deleteArtist = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this artist?')) return;
+
+        const { error } = await supabase
+            .from('artists')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting artist:', error);
+            alert('Failed to delete artist');
+        } else {
+            fetchDashboardData();
         }
     };
 
@@ -196,13 +228,30 @@ export default function StudioDashboard() {
                                             <Calendar className="h-4 w-4 mr-2" />
                                             {new Date(event.date).toLocaleDateString()}
                                         </div>
-                                        <div className="flex justify-between items-center">
+                                        <div className="flex justify-between items-center gap-2">
                                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                                                {event.capacity} spots total
+                                                {event.capacity} spots
                                             </span>
-                                            <Link href={`/events/${event.id}`}>
-                                                <Button variant="outline" size="sm">View</Button>
-                                            </Link>
+                                            <div className="flex gap-2">
+                                                <Link href={`/events/${event.id}`}>
+                                                    <Button variant="outline" size="icon" title="View">
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </Link>
+                                                <Link href={`/studio/events/${event.id}/edit`}>
+                                                    <Button variant="outline" size="icon" title="Edit">
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                </Link>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    onClick={() => deleteEvent(event.id)}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -248,6 +297,26 @@ export default function StudioDashboard() {
                                                     <p className="text-sm text-purple-600 dark:text-purple-400 mb-1">@{artist.instagram}</p>
                                                 )}
                                                 <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{artist.bio}</p>
+
+                                                <div className="flex gap-2 mt-4">
+                                                    <Link href={`/artists/${artist.id}`}>
+                                                        <Button variant="outline" size="sm">
+                                                            <Eye className="h-4 w-4 mr-1" /> View
+                                                        </Button>
+                                                    </Link>
+                                                    <Link href={`/studio/artists/${artist.id}/edit`}>
+                                                        <Button variant="outline" size="sm">
+                                                            <Edit className="h-4 w-4 mr-1" /> Edit
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => deleteArtist(artist.id)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>

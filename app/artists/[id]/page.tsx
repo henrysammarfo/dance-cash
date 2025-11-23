@@ -28,8 +28,9 @@ async function getArtist(id: string) {
     return { artist, events: events || [] };
 }
 
-export default async function ArtistPage({ params }: { params: { id: string } }) {
-    const data = await getArtist(params.id);
+export default async function ArtistPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const data = await getArtist(id);
 
     if (!data) {
         notFound();
@@ -40,7 +41,7 @@ export default async function ArtistPage({ params }: { params: { id: string } })
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black pt-20 pb-12">
             {/* Hero Section */}
-            <div className="relative bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 mb-12">
+            <div className="relative bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 mb-12">
                 <div className="container mx-auto px-4 py-12 md:py-20">
                     <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
                         <div className="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-xl flex-shrink-0">
@@ -106,7 +107,7 @@ export default async function ArtistPage({ params }: { params: { id: string } })
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
+                    <div className="text-center py-12 bg-white dark:bg-black rounded-2xl border border-gray-200 dark:border-gray-800">
                         <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 dark:text-white">No upcoming events</h3>
                         <p className="text-gray-500 dark:text-gray-400">Check back later for new classes and workshops.</p>

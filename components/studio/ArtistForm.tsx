@@ -19,11 +19,14 @@ const artistSchema = z.object({
     website: z.string().url('Invalid URL').optional().or(z.literal('')),
 });
 
+import { Artist } from '@/types';
+
 interface ArtistFormProps {
     onSuccess: () => void;
+    initialData?: Artist;
 }
 
-export function ArtistForm({ onSuccess }: ArtistFormProps) {
+export function ArtistForm({ onSuccess, initialData }: ArtistFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const { toast } = useToast();
@@ -31,10 +34,10 @@ export function ArtistForm({ onSuccess }: ArtistFormProps) {
     const form = useForm<z.infer<typeof artistSchema>>({
         resolver: zodResolver(artistSchema),
         defaultValues: {
-            name: '',
-            bio: '',
-            instagram: '',
-            website: '',
+            name: initialData?.name || '',
+            bio: initialData?.bio || '',
+            instagram: initialData?.instagram || '',
+            website: initialData?.website || '',
         },
     });
 
@@ -44,7 +47,7 @@ export function ArtistForm({ onSuccess }: ArtistFormProps) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not authenticated');
 
-            let image_url = '';
+            let image_url = initialData?.image_url || '';
 
             if (imageFile) {
                 const fileExt = imageFile.name.split('.').pop();
@@ -62,32 +65,57 @@ export function ArtistForm({ onSuccess }: ArtistFormProps) {
                 image_url = publicUrl;
             }
 
-            const { error } = await supabase
-                .from('artists')
-                .insert({
-                    studio_id: session.user.id,
-                    name: values.name,
-                    bio: values.bio,
-                    instagram: values.instagram,
-                    website: values.website,
-                    image_url: image_url || null,
+            if (initialData) {
+                // Update existing artist
+                const { error } = await supabase
+                    .from('artists')
+                    .update({
+                        name: values.name,
+                        bio: values.bio,
+                        instagram: values.instagram,
+                        website: values.website,
+                        image_url: image_url || null,
+                    })
+                    .eq('id', initialData.id);
+
+                if (error) throw error;
+
+                toast({
+                    title: 'Success',
+                    description: 'Artist updated successfully',
                 });
+            } else {
+                // Create new artist
+                const { error } = await supabase
+                    .from('artists')
+                    .insert({
+                        studio_id: session.user.id,
+                        name: values.name,
+                        bio: values.bio,
+                        instagram: values.instagram,
+                        website: values.website,
+                        image_url: image_url || null,
+                    });
 
-            if (error) throw error;
+                if (error) throw error;
 
-            toast({
-                title: 'Success',
-                description: 'Artist created successfully',
-            });
+                toast({
+                    title: 'Success',
+                    description: 'Artist created successfully',
+                });
+            }
 
-            form.reset();
-            setImageFile(null);
+            if (!initialData) {
+                form.reset();
+                setImageFile(null);
+            }
             onSuccess();
         } catch (error: any) {
-            console.error('Error creating artist:', error);
+            console.error('Error saving artist:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
             toast({
                 title: 'Error',
-                description: error.message || 'Failed to create artist',
+                description: error.message || error.error_description || 'Failed to save artist',
                 variant: 'destructive',
             });
         } finally {

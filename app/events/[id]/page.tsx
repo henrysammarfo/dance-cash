@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Calendar, MapPin, User, Clock, Share2, ArrowLeft } from 'lucide-react';
+import { ShareButton } from '@/components/ShareButton';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 
@@ -17,15 +18,29 @@ async function getEvent(id: string) {
     .eq('id', id)
     .single();
 
-  if (error || !event) {
-    return null;
+  if (error) {
+    return { error };
   }
 
-  return event as Event;
+  return { event: event as Event };
 }
 
-export default async function EventPage({ params }: { params: { id: string } }) {
-  const event = await getEvent(params.id);
+export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { event, error } = await getEvent(id);
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black text-red-500 p-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-2">Error Loading Event</h1>
+          <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-auto max-w-2xl">
+            {JSON.stringify(error, null, 2)}
+          </pre>
+        </div>
+      </div>
+    );
+  }
 
   if (!event) {
     notFound();
@@ -127,7 +142,7 @@ export default async function EventPage({ params }: { params: { id: string } }) 
               <section className="mb-12">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Featured Artist</h2>
                 <Link href={`/artists/${event.artist.id}`}>
-                  <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 flex items-center gap-6 hover:border-purple-500 transition-colors group cursor-pointer">
+                  <div className="bg-white dark:bg-black rounded-2xl p-6 border border-gray-200 dark:border-gray-800 flex items-center gap-6 hover:border-purple-500 transition-colors group cursor-pointer">
                     <div className="h-24 w-24 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-100 dark:border-gray-800 group-hover:border-purple-500 transition-colors">
                       {event.artist.image_url ? (
                         <img src={event.artist.image_url} alt={event.artist.name} className="w-full h-full object-cover" />
