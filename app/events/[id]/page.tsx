@@ -29,12 +29,12 @@ async function getEvent(id: string) {
     return { error };
   }
 
-  // Fetch confirmed signups count
+  // Fetch confirmed signups count (using confirmed_at field, not status)
   const { count } = await supabase
     .from('signups')
     .select('*', { count: 'exact', head: true })
     .eq('event_id', id)
-    .eq('status', 'confirmed');
+    .not('confirmed_at', 'is', null);
 
   return { event: event as Event, signupCount: count || 0 };
 }
@@ -63,6 +63,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const spotsLeft = Math.max(0, event.capacity - (signupCount || 0));
   const isSoldOut = spotsLeft === 0;
 
+  // Check if event has ended (past date + time)
+  const eventDateTime = new Date(`${event.date}T${event.time}`);
+  const now = new Date();
+  const hasEnded = now > eventDateTime;
+
   // Helper to get all artists (from multiple selection or legacy single selection)
   const artists = event.event_artists?.map(ea => ea.artist) || (event.artist ? [event.artist] : []);
 
@@ -72,7 +77,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     name: event.name,
     startDate: `${event.date}T${event.time || '00:00'}`,
     endDate: `${event.date}T23:59`,
-    eventStatus: isSoldOut ? 'https://schema.org/EventSoldOut' : 'https://schema.org/EventScheduled',
+    eventStatus: hasEnded ? 'https://schema.org/EventCancelled' : (isSoldOut ? 'https://schema.org/EventSoldOut' : 'https://schema.org/EventScheduled'),
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     location: {
       '@type': 'Place',
@@ -256,13 +261,17 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                   <span className="text-gray-600 dark:text-gray-400 flex items-center">
                     <User size={16} className="mr-2" /> Availability
                   </span>
-                  <span className={`font-medium ${isSoldOut ? 'text-red-600' : 'text-green-600'}`}>
-                    {isSoldOut ? 'Sold Out' : `${spotsLeft} spots left`}
+                  <span className={`font-medium ${hasEnded ? 'text-gray-500' : (isSoldOut ? 'text-red-600' : 'text-green-600')}`}>
+                    {hasEnded ? 'Event Ended' : (isSoldOut ? 'Sold Out' : `${spotsLeft} spots left`)}
                   </span>
                 </div>
               </div>
 
-              {isSoldOut ? (
+              {hasEnded ? (
+                <Button size="lg" disabled className="w-full bg-gray-300 dark:bg-gray-800 text-gray-500 text-lg py-6 rounded-xl cursor-not-allowed">
+                  Event Ended
+                </Button>
+              ) : isSoldOut ? (
                 <Button size="lg" disabled className="w-full bg-gray-300 dark:bg-gray-800 text-gray-500 text-lg py-6 rounded-xl cursor-not-allowed">
                   Sold Out
                 </Button>

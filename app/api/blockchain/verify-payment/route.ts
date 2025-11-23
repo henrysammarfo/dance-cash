@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
             if (signup) {
                 const { data: event } = await supabase
                     .from('events')
-                    .select('name, date, location, studio_id, banner_url')
+                    .select('name, date, time, location, studio_id, banner_url')
                     .eq('id', signup.event_id)
                     .single();
 
@@ -197,6 +197,34 @@ export async function POST(request: NextRequest) {
                         console.log('CashStamp created:', cashStamp.id);
                     } catch (cashStampError) {
                         console.error('Error creating CashStamp:', cashStampError);
+                    }
+
+                    // Send confirmation email
+                    try {
+                        if (signup.attendee_email) {
+                            const { sendConfirmationEmail } = await import('@/lib/email');
+                            const emailResult = await sendConfirmationEmail({
+                                to: signup.attendee_email,
+                                attendeeName: signup.attendee_name,
+                                eventName: event.name,
+                                eventDate: event.date,
+                                eventTime: event.time || 'TBD',
+                                eventLocation: event.location,
+                                nftTxid: (await supabase.from('signups').select('nft_txid').eq('id', signupId).single()).data?.nft_txid,
+                                network: process.env.NEXT_PUBLIC_BCH_NETWORK || 'chipnet',
+                            });
+
+                            if (emailResult.success) {
+                                console.log('Confirmation email sent successfully');
+                            } else {
+                                console.warn('Failed to send confirmation email:', emailResult.error);
+                            }
+                        } else {
+                            console.log('No email address provided, skipping confirmation email');
+                        }
+                    } catch (emailError) {
+                        console.error('Error sending confirmation email:', emailError);
+                        // Continue execution - don't fail the confirmation just because email failed
                     }
                 }
             }
