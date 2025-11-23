@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
                             value: 1000, // 1000 sats for the UTXO
                             capability: 'none', // NFT with no minting capability
                             commitment: commitment,
-                        });
+                        }) as any;
 
                         console.log('NFT Genesis Response:', genesisResponse);
 
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
 
                     // Create CashStamp Reward
                     try {
-                        const cashStampAmount = balance * 0.1; // 10% cashback
+                        const cashStampAmount = Number(balance) * 0.1; // 10% cashback
                         const { generateCashStampQR } = await import('@/lib/cashtamps');
 
                         const cashStamp = await generateCashStampQR(

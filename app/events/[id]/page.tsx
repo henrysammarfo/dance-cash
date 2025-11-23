@@ -7,13 +7,7 @@ import { Calendar, MapPin, User, Clock, Share2, ArrowLeft } from 'lucide-react';
 import { ShareButton } from '@/components/ShareButton';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
-import dynamic from 'next/dynamic';
-
-// Dynamically import Map component to avoid SSR issues with Leaflet
-const EventMap = dynamic(() => import('@/components/EventMap'), {
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-2xl" />
-});
+import EventMapWrapper from '@/components/EventMapWrapper';
 
 // Revalidate every 60 seconds
 export const revalidate = 60;
@@ -21,7 +15,13 @@ export const revalidate = 60;
 async function getEvent(id: string) {
   const { data: event, error } = await supabase
     .from('events')
-    .select('*, artist:artists(*)')
+    .select(`
+      *,
+      artist:artists(*),
+      event_artists(
+        artist:artists(*)
+      )
+    `)
     .eq('id', id)
     .single();
 
@@ -63,6 +63,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const spotsLeft = Math.max(0, event.capacity - (signupCount || 0));
   const isSoldOut = spotsLeft === 0;
 
+  // Helper to get all artists (from multiple selection or legacy single selection)
+  const artists = event.event_artists?.map(ea => ea.artist) || (event.artist ? [event.artist] : []);
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Event',
@@ -98,10 +101,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       name: 'Dance Cash Studio',
       url: 'https://dance.cash',
     },
-    performer: event.artist ? {
+    performer: artists.map(artist => ({
       '@type': 'Person',
-      name: event.artist.name,
-    } : undefined,
+      name: artist.name,
+    })),
   };
 
   return (
@@ -154,34 +157,40 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               </div>
             </section>
 
-            {/* Featured Artist Section */}
-            {event.artist && (
+            {/* Featured Artists Section */}
+            {artists.length > 0 && (
               <section className="mb-12">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Featured Artist</h2>
-                <Link href={`/artists/${event.artist.id}`}>
-                  <div className="bg-white dark:bg-black rounded-2xl p-6 border border-gray-200 dark:border-gray-800 flex items-center gap-6 hover:border-purple-500 transition-colors group cursor-pointer">
-                    <div className="h-24 w-24 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-100 dark:border-gray-800 group-hover:border-purple-500 transition-colors">
-                      {event.artist.image_url ? (
-                        <img src={event.artist.image_url} alt={event.artist.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-2xl font-bold text-gray-400">
-                          {event.artist.name.charAt(0)}
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                  {artists.length > 1 ? 'Featured Artists' : 'Featured Artist'}
+                </h2>
+                <div className="grid grid-cols-1 gap-6">
+                  {artists.map(artist => (
+                    <Link key={artist.id} href={`/artists/${artist.id}`}>
+                      <div className="bg-white dark:bg-black rounded-2xl p-6 border border-gray-200 dark:border-gray-800 flex items-center gap-6 hover:border-purple-500 transition-colors group cursor-pointer">
+                        <div className="h-24 w-24 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-100 dark:border-gray-800 group-hover:border-purple-500 transition-colors">
+                          {artist.image_url ? (
+                            <img src={artist.image_url} alt={artist.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-2xl font-bold text-gray-400">
+                              {artist.name.charAt(0)}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 transition-colors">
-                        {event.artist.name}
-                      </h3>
-                      <p className="text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
-                        {event.artist.bio || 'Instructor'}
-                      </p>
-                      <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                        View Profile →
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 transition-colors">
+                            {artist.name}
+                          </h3>
+                          <p className="text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
+                            {artist.bio || 'Instructor'}
+                          </p>
+                          <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                            View Profile →
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </section>
             )}
 
@@ -208,7 +217,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <section>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Location</h2>
               <div className="aspect-video bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-800">
-                <EventMap location={event.location} />
+                <EventMapWrapper location={event.location} />
               </div>
               <p className="mt-4 text-gray-600 dark:text-gray-400 flex items-center">
                 <MapPin size={18} className="mr-2" />

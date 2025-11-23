@@ -22,6 +22,7 @@ export interface Event {
     capacity: number;
     artist_id?: string;
     artist?: Artist;
+    event_artists?: { artist: Artist }[];
     time: string;
     style: string;
     teacher: string;

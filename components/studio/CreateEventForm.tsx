@@ -30,7 +30,7 @@ const eventSchema = z.object({
     teacher: z.string().min(2, 'Teacher name is required'),
     price: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine((val) => !isNaN(val) && val >= 0, 'Price must be a valid number'),
     capacity: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine((val) => !isNaN(val) && val > 0, 'Capacity must be a positive number'),
-    artist_id: z.string().optional(),
+    artist_ids: z.array(z.string()).optional(),
 });
 
 type EventFormValues = z.infer<typeof eventSchema>;
@@ -38,7 +38,7 @@ type EventFormValues = z.infer<typeof eventSchema>;
 import { Event } from '@/types';
 
 interface CreateEventFormProps {
-    initialData?: Event;
+    initialData?: any;
 }
 
 export function CreateEventForm({ initialData }: CreateEventFormProps) {
@@ -89,7 +89,7 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
             teacher: initialData?.teacher || '',
             price: initialData?.price_usd || 0,
             capacity: initialData?.capacity || 20,
-            artist_id: initialData?.artist_id || '',
+            artist_ids: initialData?.event_artists?.map((ea: any) => ea.artist_id) || [],
         },
     });
 
@@ -143,11 +143,23 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                         price_usd: data.price,
                         capacity: data.capacity,
                         banner_url: imageUrl,
-                        artist_id: data.artist_id || null,
                     })
                     .eq('id', initialData.id);
 
                 if (error) throw error;
+
+                // Update artists: Delete all existing and re-insert
+                if (data.artist_ids) {
+                    await supabase.from('event_artists').delete().eq('event_id', initialData.id);
+
+                    if (data.artist_ids.length > 0) {
+                        const artistInserts = data.artist_ids.map((artistId: string) => ({
+                            event_id: initialData.id,
+                            artist_id: artistId
+                        }));
+                        await supabase.from('event_artists').insert(artistInserts);
+                    }
+                }
 
                 toast({
                     title: 'Success!',
@@ -155,7 +167,7 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                 });
             } else {
                 // Create new event
-                const { error } = await supabase
+                const { data: newEvent, error } = await supabase
                     .from('events')
                     .insert({
                         studio_id: user.id,
@@ -169,10 +181,20 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                         price_usd: data.price,
                         capacity: data.capacity,
                         banner_url: imageUrl,
-                        artist_id: data.artist_id || null,
-                    });
+                    })
+                    .select()
+                    .single();
 
                 if (error) throw error;
+
+                // Insert artists
+                if (data.artist_ids && data.artist_ids.length > 0) {
+                    const artistInserts = data.artist_ids.map((artistId: string) => ({
+                        event_id: newEvent.id,
+                        artist_id: artistId
+                    }));
+                    await supabase.from('event_artists').insert(artistInserts);
+                }
 
                 toast({
                     title: 'Success!',
@@ -288,17 +310,20 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                         />
                         <FormField
                             control={form.control}
-                            name="artist_id"
+                            name="artist_ids"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Artist / Teacher (Optional)</FormLabel>
+                                    <FormLabel>Artists / Teachers (Select Multiple)</FormLabel>
                                     <FormControl>
                                         <select
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                            onChange={field.onChange}
-                                            value={field.value || ''}
+                                            multiple
+                                            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            onChange={(e) => {
+                                                const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+                                                field.onChange(selectedOptions);
+                                            }}
+                                            value={field.value || []}
                                         >
-                                            <option value="">Select an artist</option>
                                             {artists.map((artist) => (
                                                 <option key={artist.id} value={artist.id}>
                                                     {artist.name}
@@ -306,6 +331,7 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                                             ))}
                                         </select>
                                     </FormControl>
+                                    <p className="text-xs text-muted-foreground">Hold Ctrl (Windows) or Cmd (Mac) to select multiple artists.</p>
                                     <FormMessage />
                                 </FormItem>
                             )}

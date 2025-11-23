@@ -19,7 +19,7 @@ export async function mintEventNFT(destinationAddress: string, eventName: string
         // We set the commitment to the event name so it displays in wallets
         const { txId, tokenIds } = await wallet.tokenGenesis({
             cashaddr: destinationAddress,
-            amount: 0n, // NFT has 0 fungible amount
+            amount: BigInt(0), // NFT has 0 fungible amount
             capability: 'none', // Immutable NFT
             commitment: eventName, // Displayed content
         });
