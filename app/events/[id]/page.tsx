@@ -7,6 +7,13 @@ import { Calendar, MapPin, User, Clock, Share2, ArrowLeft } from 'lucide-react';
 import { ShareButton } from '@/components/ShareButton';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
+import dynamic from 'next/dynamic';
+
+// Dynamically import Map component to avoid SSR issues with Leaflet
+const EventMap = dynamic(() => import('@/components/EventMap'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-2xl" />
+});
 
 // Revalidate every 60 seconds
 export const revalidate = 60;
@@ -197,11 +204,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               </section>
             )}
 
-            {/* Map Placeholder */}
+            {/* Map Section */}
             <section>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Location</h2>
-              <div className="aspect-video bg-gray-200 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
-                <p className="text-gray-500">Map Integration Coming Soon</p>
+              <div className="aspect-video bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-800">
+                <EventMap location={event.location} />
               </div>
               <p className="mt-4 text-gray-600 dark:text-gray-400 flex items-center">
                 <MapPin size={18} className="mr-2" />
