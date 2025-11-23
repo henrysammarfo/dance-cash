@@ -22,12 +22,19 @@ async function getEvent(id: string) {
     return { error };
   }
 
-  return { event: event as Event };
+  // Fetch confirmed signups count
+  const { count } = await supabase
+    .from('signups')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', id)
+    .eq('status', 'confirmed');
+
+  return { event: event as Event, signupCount: count || 0 };
 }
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { event, error } = await getEvent(id);
+  const { event, signupCount, error } = await getEvent(id);
 
   if (error) {
     return (
@@ -46,21 +53,24 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     notFound();
   }
 
+  const spotsLeft = Math.max(0, event.capacity - (signupCount || 0));
+  const isSoldOut = spotsLeft === 0;
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: event.name,
-    startDate: `${event.date}T${event.time || '00:00'}`, // Assuming time is stored or defaults
-    endDate: `${event.date}T23:59`, // Placeholder end time
-    eventStatus: 'https://schema.org/EventScheduled',
+    startDate: `${event.date}T${event.time || '00:00'}`,
+    endDate: `${event.date}T23:59`,
+    eventStatus: isSoldOut ? 'https://schema.org/EventSoldOut' : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     location: {
       '@type': 'Place',
       name: event.location,
       address: {
         '@type': 'PostalAddress',
-        streetAddress: event.location, // Ideally split this
-        addressLocality: 'Unknown', // Placeholder
+        streetAddress: event.location,
+        addressLocality: 'Unknown',
         addressRegion: 'Unknown',
         postalCode: 'Unknown',
         addressCountry: 'US',
@@ -73,12 +83,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       url: `https://dance.cash/events/${event.id}`,
       price: event.price_usd,
       priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
-      validFrom: event.created_at, // Assuming created_at exists on event
+      availability: isSoldOut ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+      validFrom: event.created_at,
     },
     organizer: {
       '@type': 'Organization',
-      name: 'Dance Cash Studio', // Ideally fetch studio name
+      name: 'Dance Cash Studio',
       url: 'https://dance.cash',
     },
     performer: event.artist ? {
@@ -88,14 +98,14 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black pt-20 pb-12">
+    <div className="min-h-screen bg-gray-50 dark:bg-black pt-0 pb-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       {/* Hero Banner */}
-      <div className="relative h-[50vh] w-full">
+      <div className="relative h-[60vh] w-full">
         <Image
           src={event.banner_url || '/placeholder-event.jpg'}
           alt={event.name}
@@ -103,7 +113,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           className="object-cover"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-8 container mx-auto">
           <Link href="/events" className="inline-flex items-center text-white/80 hover:text-white mb-4 transition-colors">
             <ArrowLeft size={20} className="mr-2" />
@@ -228,17 +238,25 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400 flex items-center">
-                    <User size={16} className="mr-2" /> Capacity
+                    <User size={16} className="mr-2" /> Availability
                   </span>
-                  <span className="font-medium">{event.capacity} spots</span>
+                  <span className={`font-medium ${isSoldOut ? 'text-red-600' : 'text-green-600'}`}>
+                    {isSoldOut ? 'Sold Out' : `${spotsLeft} spots left`}
+                  </span>
                 </div>
               </div>
 
-              <Link href={`/signup/${event.id}`} className="block w-full">
-                <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white text-lg py-6 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all">
-                  Book Now
+              {isSoldOut ? (
+                <Button size="lg" disabled className="w-full bg-gray-300 dark:bg-gray-800 text-gray-500 text-lg py-6 rounded-xl cursor-not-allowed">
+                  Sold Out
                 </Button>
-              </Link>
+              ) : (
+                <Link href={`/signup/${event.id}`} className="block w-full">
+                  <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white text-lg py-6 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all">
+                    Book Now
+                  </Button>
+                </Link>
+              )}
 
               <p className="mt-4 text-xs text-center text-gray-500">
                 Secure payment via Bitcoin Cash or Credit Card

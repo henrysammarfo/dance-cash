@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         // Get the expected amount from the database
         const { data: paymentAddress, error: fetchError } = await supabase
             .from('payment_addresses')
-            .select('amount_bch')
+            .select('amount_bch, wif')
             .eq('address', address)
             .eq('signup_id', signupId)
             .single();
@@ -61,6 +61,32 @@ export async function POST(request: NextRequest) {
             if (updateError) {
                 console.error('Error updating signup:', updateError);
                 throw updateError;
+            }
+
+            // Sweep funds to Studio Wallet
+            if (paymentAddress.wif) {
+                try {
+                    // Fetch studio address via event
+                    const { data: signupData } = await supabase
+                        .from('signups')
+                        .select('event:events(studio:studios(bch_address))')
+                        .eq('id', signupId)
+                        .single();
+
+                    const studioAddress = (signupData as any)?.event?.studio?.bch_address;
+
+                    if (studioAddress) {
+                        console.log(`Sweeping funds to studio: ${studioAddress}`);
+                        const tempWallet = await WalletClass.fromWIF(paymentAddress.wif);
+                        await tempWallet.sendMax(studioAddress);
+                        console.log('Funds swept successfully');
+                    } else {
+                        console.warn('No studio address found to sweep funds to');
+                    }
+                } catch (sweepError) {
+                    console.error('Error sweeping funds:', sweepError);
+                    // Continue execution - don't fail the user's confirmation just because sweep failed
+                }
             }
 
             // Get event details for NFT metadata

@@ -28,8 +28,8 @@ const eventSchema = z.object({
     location: z.string().min(3, 'Location is required'),
     style: z.string().min(1, 'Style is required'),
     teacher: z.string().min(2, 'Teacher name is required'),
-    price: z.string().transform((val) => parseFloat(val)).refine((val) => !isNaN(val) && val >= 0, 'Price must be a valid number'),
-    capacity: z.string().transform((val) => parseInt(val)).refine((val) => !isNaN(val) && val > 0, 'Capacity must be a positive number'),
+    price: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine((val) => !isNaN(val) && val >= 0, 'Price must be a valid number'),
+    capacity: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine((val) => !isNaN(val) && val > 0, 'Capacity must be a positive number'),
     artist_id: z.string().optional(),
 });
 

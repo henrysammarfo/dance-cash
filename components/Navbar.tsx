@@ -17,6 +17,10 @@ export function Navbar() {
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const pathname = usePathname();
     const router = useRouter();
+
+    // Navbar should be transparent on Home AND Event Details pages
+    // Check if path is '/' OR starts with '/events/' and has an ID (length > 2 parts)
+    const isTransparentPage = pathname === '/' || (pathname.startsWith('/events/') && pathname.split('/').length > 2);
     const isHome = pathname === '/';
 
     useEffect(() => {
@@ -65,7 +69,9 @@ export function Navbar() {
         <motion.nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b ${scrolled
                 ? 'bg-white/90 dark:bg-black/90 backdrop-blur-md border-gray-200/50 dark:border-white/10'
-                : 'bg-transparent border-transparent'
+                : isTransparentPage
+                    ? 'bg-transparent border-transparent'
+                    : 'bg-white/90 dark:bg-black/90 backdrop-blur-md border-gray-200/50 dark:border-white/10'
                 }`}
         >
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -76,7 +82,7 @@ export function Navbar() {
                         </div>
                         <span className={`text-2xl font-bold transition-colors duration-300 ${scrolled
                             ? 'bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600 dark:from-white dark:to-gray-300'
-                            : isHome ? 'text-white' : 'text-gray-900 dark:text-white'
+                            : isTransparentPage ? 'text-white' : 'text-gray-900 dark:text-white'
                             }`}>
                             {APP_NAME}
                         </span>
@@ -87,7 +93,7 @@ export function Navbar() {
                             href="/events"
                             className={`relative text-sm font-medium transition-colors group ${scrolled
                                 ? 'text-gray-700 hover:text-purple-600 dark:text-gray-200 dark:hover:text-white'
-                                : isHome
+                                : isTransparentPage
                                     ? 'text-white/90 hover:text-white'
                                     : 'text-gray-700 hover:text-purple-600 dark:text-gray-200 dark:hover:text-white'
                                 }`}
@@ -101,7 +107,7 @@ export function Navbar() {
                                 href="/studio/dashboard"
                                 className={`relative text-sm font-medium transition-colors group ${scrolled
                                     ? 'text-gray-700 hover:text-purple-600 dark:text-gray-200 dark:hover:text-white'
-                                    : isHome
+                                    : isTransparentPage
                                         ? 'text-white/90 hover:text-white'
                                         : 'text-gray-700 hover:text-purple-600 dark:text-gray-200 dark:hover:text-white'
                                     }`}
@@ -111,7 +117,7 @@ export function Navbar() {
                             </Link>
                         )}
 
-                        <div className={`w-px h-6 ${scrolled || !isHome ? 'bg-gray-200 dark:bg-gray-800' : 'bg-white/20'}`} />
+                        <div className={`w-px h-6 ${scrolled || !isTransparentPage ? 'bg-gray-200 dark:bg-gray-800' : 'bg-white/20'}`} />
 
                         <ThemeToggle />
 
@@ -120,7 +126,7 @@ export function Navbar() {
                                 <Button
                                     variant="default"
                                     size="sm"
-                                    className={`border shadow-sm hover:shadow-md transition-all duration-300 rounded-full px-6 ${scrolled || !isHome
+                                    className={`border shadow-sm hover:shadow-md transition-all duration-300 rounded-full px-6 ${scrolled || !isTransparentPage
                                         ? 'bg-purple-600 hover:bg-purple-700 text-white border-transparent'
                                         : 'bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white hover:text-black'
                                         }`}
@@ -155,7 +161,7 @@ export function Navbar() {
                                 <Button
                                     variant="default"
                                     size="sm"
-                                    className={`border shadow-sm hover:shadow-md transition-all duration-300 rounded-full px-6 ${scrolled || !isHome
+                                    className={`border shadow-sm hover:shadow-md transition-all duration-300 rounded-full px-6 ${scrolled || !isTransparentPage
                                         ? 'bg-white dark:bg-white text-black hover:bg-gray-100 dark:hover:bg-gray-200 border-gray-200 dark:border-transparent'
                                         : 'bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white hover:text-black'
                                         }`}
@@ -171,7 +177,7 @@ export function Navbar() {
                         <ThemeToggle />
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className={`p-2 rounded-full transition-colors focus:outline-none ${scrolled || !isHome
+                            className={`p-2 rounded-full transition-colors focus:outline-none ${scrolled || !isTransparentPage
                                 ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-gray-700'
                                 : 'bg-white/10 text-white hover:bg-white/20'
                                 }`}
