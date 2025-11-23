@@ -313,25 +313,35 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                             name="artist_ids"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Artists / Teachers (Select Multiple)</FormLabel>
+                                    <FormLabel>Featured Artists (Optional)</FormLabel>
                                     <FormControl>
-                                        <select
-                                            multiple
-                                            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                            onChange={(e) => {
-                                                const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-                                                field.onChange(selectedOptions);
-                                            }}
-                                            value={field.value || []}
-                                        >
-                                            {artists.map((artist) => (
-                                                <option key={artist.id} value={artist.id}>
-                                                    {artist.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="border rounded-md p-4 space-y-2 max-h-48 overflow-y-auto">
+                                            {artists.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">No artists available. Create artists first in your dashboard.</p>
+                                            ) : (
+                                                artists.map((artist) => (
+                                                    <label key={artist.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded">
+                                                        <input
+                                                            type="checkbox"
+                                                            value={artist.id}
+                                                            checked={field.value?.includes(artist.id) || false}
+                                                            onChange={(e) => {
+                                                                const currentValue = field.value || [];
+                                                                if (e.target.checked) {
+                                                                    field.onChange([...currentValue, artist.id]);
+                                                                } else {
+                                                                    field.onChange(currentValue.filter((id: string) => id !== artist.id));
+                                                                }
+                                                            }}
+                                                            className="h-4 w-4 rounded border-gray-300"
+                                                        />
+                                                        <span className="text-sm">{artist.name}</span>
+                                                    </label>
+                                                ))
+                                            )}
+                                        </div>
                                     </FormControl>
-                                    <p className="text-xs text-muted-foreground">Hold Ctrl (Windows) or Cmd (Mac) to select multiple artists.</p>
+                                    <p className="text-xs text-muted-foreground">Select one or more artists to feature for this event. Leave unchecked if none.</p>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -370,10 +380,11 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                             name="teacher"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Instructor Name (Manual)</FormLabel>
+                                    <FormLabel>Instructor Name (Optional)</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Jane Doe" {...field} />
+                                        <Input placeholder="e.g., Jane Doe" {...field} />
                                     </FormControl>
+                                    <p className="text-xs text-muted-foreground">Use this for a simple instructor name, or leave blank if using Featured Artists above.</p>
                                     <FormMessage />
                                 </FormItem>
                             )}
