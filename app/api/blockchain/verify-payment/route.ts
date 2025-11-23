@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { TestNetWallet, Wallet, Config } from 'mainnet-js';
+import { generateCashStampQR } from '@/lib/cashtamps';
+
+// Initialize Supabase client with Service Role Key for admin privileges (bypassing RLS)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function POST(request: NextRequest) {
     try {
@@ -80,27 +87,22 @@ export async function POST(request: NextRequest) {
 
                         const serverWallet = await WalletClass.fromWIF(serverWif);
 
-                        // Create NFT metadata with image (like Sui NFTs)
+                        // Create minimal NFT metadata (CashToken commitment limit is 40 bytes)
+                        // Use short field names and truncate values to fit
                         const nftMetadata = {
-                            name: `${event.name} - Ticket`,
-                            description: `Event ticket for ${event.name} on ${event.date}`,
-                            image: event.banner_url || '', // Event banner image
-                            attendee: signup.attendee_name,
-                            event: event.name,
-                            date: event.date,
-                            location: event.location,
-                            signupId: signupId,
-                            type: 'event-ticket',
+                            e: event.name.substring(0, 15), // Event name (max 15 chars)
+                            a: signup.attendee_name.split(' ')[0], // First name only
                         };
 
                         const commitment = Buffer.from(JSON.stringify(nftMetadata)).toString('hex');
 
                         // Create CashToken NFT genesis
+                        const serverAddress = await serverWallet.getDepositAddress();
                         const genesisResponse = await serverWallet.tokenGenesis({
-                            cashaddr: serverWallet.cashaddr!,
-                            amount: 1, // 1 NFT
+                            cashaddr: serverAddress,
+                            amount: BigInt(1), // 1 NFT
                             value: 1000, // 1000 sats for the UTXO
-                            capability: 'none' as any, // NFT with no minting capability
+                            capability: 'none', // NFT with no minting capability
                             commitment: commitment,
                         });
 
@@ -117,8 +119,8 @@ export async function POST(request: NextRequest) {
                                 cashaddr: userAddress,
                                 value: 1000, // 1000 sats
                                 tokenId: tokenId,
-                                tokenAmount: 1, // Send 1 NFT
-                            }
+                                amount: BigInt(1), // Send 1 NFT
+                            } as any
                         ]);
 
                         console.log('NFT sent to user:', sendResponse);
@@ -137,10 +139,11 @@ export async function POST(request: NextRequest) {
                         console.error('Error minting on-chain NFT:', nftError);
                         console.error('NFT Error details:', nftError.message, nftError.stack);
                         // Store error for debugging
+                        const errorMsg = nftError?.message || nftError?.toString() || 'Unknown error';
                         await supabase
                             .from('signups')
                             .update({
-                                nft_txid: `error_${Date.now()}`,
+                                nft_txid: `error_${errorMsg.substring(0, 50)}`,
                             })
                             .eq('id', signupId);
                     }
