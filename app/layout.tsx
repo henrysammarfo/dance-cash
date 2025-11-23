@@ -11,6 +11,15 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: APP_NAME,
   description: 'Bitcoin Cash event booking platform with NFT tickets and cashback rewards',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
+  openGraph: {
+    title: APP_NAME,
+    description: 'Bitcoin Cash event booking platform with NFT tickets and cashback rewards',
+    images: ['/logo.png'],
+  },
 };
 
 export default function RootLayout({
