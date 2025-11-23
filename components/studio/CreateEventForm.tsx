@@ -18,7 +18,12 @@ import { useToast } from '@/components/ui/use-toast';
 const eventSchema = z.object({
     name: z.string().min(3, 'Event name must be at least 3 characters'),
     description: z.string().optional(),
-    date: z.string().refine((val) => new Date(val) > new Date(), 'Date must be in the future'),
+    date: z.string().refine((val) => {
+        const date = new Date(val);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return date >= today;
+    }, 'Date must be in the future or today'),
     time: z.string().min(1, 'Time is required'),
     location: z.string().min(3, 'Location is required'),
     style: z.string().min(1, 'Style is required'),
@@ -75,14 +80,14 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
     const form = useForm<EventFormValues>({
         resolver: zodResolver(eventSchema),
         defaultValues: {
-            name: initialData?.title || '',
+            name: initialData?.name || '',
             description: initialData?.description || '',
             date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : '',
             time: initialData?.time || '',
             location: initialData?.location || '',
             style: initialData?.style || '',
             teacher: initialData?.teacher || '',
-            price: initialData?.price || 0,
+            price: initialData?.price_usd || 0,
             capacity: initialData?.capacity || 20,
             artist_id: initialData?.artist_id || '',
         },
@@ -97,7 +102,7 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                 throw new Error('You must be logged in to create an event');
             }
 
-            let imageUrl = initialData?.image_url || null;
+            let imageUrl = initialData?.banner_url || null;
 
             if (imageFile) {
                 const fileExt = imageFile.name.split('.').pop();
@@ -128,16 +133,16 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                 const { error } = await supabase
                     .from('events')
                     .update({
-                        title: data.name,
+                        name: data.name,
                         description: data.description,
                         date: data.date,
                         time: data.time,
                         location: data.location,
                         style: data.style,
                         teacher: data.teacher,
-                        price: data.price,
+                        price_usd: data.price,
                         capacity: data.capacity,
-                        image_url: imageUrl,
+                        banner_url: imageUrl,
                         artist_id: data.artist_id || null,
                     })
                     .eq('id', initialData.id);
@@ -154,16 +159,16 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                     .from('events')
                     .insert({
                         studio_id: user.id,
-                        title: data.name,
+                        name: data.name,
                         description: data.description,
                         date: data.date,
                         time: data.time,
                         location: data.location,
                         style: data.style,
                         teacher: data.teacher,
-                        price: data.price,
+                        price_usd: data.price,
                         capacity: data.capacity,
-                        image_url: imageUrl,
+                        banner_url: imageUrl,
                         artist_id: data.artist_id || null,
                     });
 
@@ -179,6 +184,12 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
             router.refresh();
         } catch (error: any) {
             console.error('Save event error:', error);
+            console.error('Error details:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
             toast({
                 title: 'Error',
                 description: error.message || 'Failed to save event.',

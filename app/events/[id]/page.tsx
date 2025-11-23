@@ -170,7 +170,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
             {/* Teacher */}
             {event.teacher && (
-              <section className="bg-gray-50 dark:bg-gray-900 p-8 rounded-2xl">
+              <section className="bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-800 p-8 rounded-2xl">
                 <div className="flex items-start gap-6">
                   <div className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-full">
                     <User size={32} className="text-purple-600 dark:text-purple-400" />
@@ -202,7 +202,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 shadow-xl">
+            <div className="sticky top-24 bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-2xl p-8 shadow-xl">
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Price per person</p>
@@ -245,10 +245,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               </p>
 
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 flex justify-center">
-                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-purple-600">
-                  <Share2 size={16} className="mr-2" />
-                  Share Event
-                </Button>
+                <ShareButton url={`https://dance.cash/events/${event.id}`} title={event.name} />
               </div>
             </div>
           </div>

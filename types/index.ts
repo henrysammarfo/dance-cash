@@ -13,22 +13,18 @@ export interface Event {
     id: string;
     created_at: string;
     studio_id: string;
-    title: string;
+    name: string; // Was title
     description?: string;
     date: string;
     location: string;
-    price: number;
-    image_url?: string;
+    price_usd: number; // Was price
+    banner_url?: string; // Was image_url
     capacity: number;
     artist_id?: string;
     artist?: Artist;
-    // Legacy fields (optional to avoid breaking existing code immediately, but should be refactored)
-    name?: string; // mapped to title
-    banner_url?: string; // mapped to image_url
-    price_usd?: number; // mapped to price
-    time?: string; // part of date
-    style?: string;
-    teacher?: string;
+    time: string;
+    style: string;
+    teacher: string;
     recurring?: boolean;
     recurring_pattern?: string;
 }

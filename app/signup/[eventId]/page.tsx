@@ -24,8 +24,9 @@ async function getEvent(id: string) {
     return data as Event;
 }
 
-export default async function SignupPage({ params }: { params: { eventId: string } }) {
-    const event = await getEvent(params.eventId);
+export default async function SignupPage({ params }: { params: Promise<{ eventId: string }> }) {
+    const { eventId } = await params;
+    const event = await getEvent(eventId);
 
     if (!event) {
         notFound();
@@ -34,11 +35,11 @@ export default async function SignupPage({ params }: { params: { eventId: string
     const { count: currentSignups } = await supabase
         .from('signups')
         .select('*', { count: 'exact', head: true })
-        .eq('event_id', params.eventId)
+        .eq('event_id', eventId)
         .eq('status', 'confirmed');
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black py-12">
+        <div className="min-h-screen bg-gray-50 dark:bg-black pt-24 pb-12">
             <div className="container mx-auto px-4">
                 <Link href={`/events/${event.id}`} className="inline-flex items-center text-gray-500 hover:text-purple-600 mb-8 transition-colors">
                     <ArrowLeft size={20} className="mr-2" />
@@ -65,7 +66,7 @@ export default async function SignupPage({ params }: { params: { eventId: string
                             </div>
                         </div>
 
-                        <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <div className="bg-white dark:bg-black p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
                             <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-800">
                                 <span className="text-gray-600 dark:text-gray-400">General Admission</span>
@@ -83,7 +84,7 @@ export default async function SignupPage({ params }: { params: { eventId: string
                     </div>
 
                     {/* Signup Form */}
-                    <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
+                    <div className="bg-white dark:bg-black p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
                         <div className="mb-8">
                             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Sign Up</h1>
                             <p className="text-gray-500 dark:text-gray-400">

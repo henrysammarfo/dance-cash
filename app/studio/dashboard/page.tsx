@@ -115,7 +115,17 @@ export default function StudioDashboard() {
 
     const totalRevenue = signups
         .filter(s => s.status === 'confirmed')
-        .reduce((acc, curr) => acc + (curr.event?.price || 0), 0);
+        .reduce((acc, curr) => acc + (curr.event?.price_usd || 0), 0);
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const activeEventsCount = events.filter(e => new Date(e.date) >= now).length;
+    const upcomingWeekCount = events.filter(e => {
+        const d = new Date(e.date);
+        const diffTime = d.getTime() - now.getTime();
+        const diffDays = diffTime / (1000 * 3600 * 24);
+        return diffDays >= 0 && diffDays <= 7;
+    }).length;
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black pt-28 pb-12 px-4 sm:px-6 lg:px-8">
@@ -141,7 +151,7 @@ export default function StudioDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-gray-900 dark:text-white">${totalRevenue.toFixed(2)}</div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">+20.1% from last month</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Lifetime earnings</p>
                         </CardContent>
                     </Card>
                     <Card className="bg-white dark:bg-black border-gray-200 dark:border-gray-800">
@@ -151,7 +161,7 @@ export default function StudioDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-gray-900 dark:text-white">{signups.length}</div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">+12 since last week</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Total registrations</p>
                         </CardContent>
                     </Card>
                     <Card className="bg-white dark:bg-black border-gray-200 dark:border-gray-800">
@@ -160,8 +170,8 @@ export default function StudioDashboard() {
                             <Calendar className="h-4 w-4 text-purple-500" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white">{events.length}</div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">2 upcoming this week</p>
+                            <div className="text-2xl font-bold text-gray-900 dark:text-white">{activeEventsCount}</div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{upcomingWeekCount} upcoming this week</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -189,7 +199,7 @@ export default function StudioDashboard() {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-gray-900 dark:text-white">{signup.name}</p>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">signed up for {signup.event?.title}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">signed up for {signup.event?.name}</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
@@ -211,57 +221,71 @@ export default function StudioDashboard() {
                     </TabsContent>
 
                     <TabsContent value="events">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="space-y-4">
                             {events.map((event) => (
                                 <Card key={event.id} className="bg-white dark:bg-black border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-lg transition-shadow">
-                                    {event.image_url && (
-                                        <div className="h-48 w-full relative">
-                                            <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
-                                            <div className="absolute top-4 right-4 bg-white/90 dark:bg-black/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold">
-                                                ${event.price}
+                                    <div className="flex flex-col sm:flex-row">
+                                        <div className="sm:w-48 h-48 sm:h-auto relative bg-gray-100 dark:bg-gray-900">
+                                            {event.banner_url ? (
+                                                <img src={event.banner_url} alt={event.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                    <Calendar className="h-12 w-12" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex-1 p-6 flex flex-col justify-center">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{event.name}</h3>
+                                                    <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm">
+                                                        <Calendar className="h-4 w-4 mr-2" />
+                                                        {new Date(event.date).toLocaleDateString()} {event.time && `at ${event.time}`}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-lg font-bold text-gray-900 dark:text-white">${event.price_usd}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 flex items-center justify-between">
+                                                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                                    <Users className="h-4 w-4 mr-2" />
+                                                    {event.capacity} spots
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <Link href={`/events/${event.id}`}>
+                                                        <Button variant="outline" size="sm" title="View">
+                                                            <Eye className="h-4 w-4 mr-2" /> View
+                                                        </Button>
+                                                    </Link>
+                                                    <Link href={`/studio/events/${event.id}/edit`}>
+                                                        <Button variant="outline" size="sm" title="Edit">
+                                                            <Edit className="h-4 w-4 mr-2" /> Edit
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => deleteEvent(event.id)}
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
-                                    <CardContent className="p-6">
-                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{event.title}</h3>
-                                        <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-4">
-                                            <Calendar className="h-4 w-4 mr-2" />
-                                            {new Date(event.date).toLocaleDateString()}
-                                        </div>
-                                        <div className="flex justify-between items-center gap-2">
-                                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                                                {event.capacity} spots
-                                            </span>
-                                            <div className="flex gap-2">
-                                                <Link href={`/events/${event.id}`}>
-                                                    <Button variant="outline" size="icon" title="View">
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                </Link>
-                                                <Link href={`/studio/events/${event.id}/edit`}>
-                                                    <Button variant="outline" size="icon" title="Edit">
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                </Link>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    onClick={() => deleteEvent(event.id)}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </CardContent>
+                                    </div>
                                 </Card>
                             ))}
-                            <Card className="bg-gray-50 dark:bg-black/50 border-dashed border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center min-h-[300px] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group">
-                                <Link href="/studio/create-event" className="flex flex-col items-center text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400">
-                                    <Plus className="h-12 w-12 mb-4" />
-                                    <span className="font-medium">Create New Event</span>
-                                </Link>
-                            </Card>
+
+                            <Link href="/studio/create-event">
+                                <Button className="w-full py-8 bg-gray-50 dark:bg-black border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-500 hover:border-purple-500 hover:text-purple-600 transition-colors">
+                                    <Plus className="mr-2 h-6 w-6" /> Create New Event
+                                </Button>
+                            </Link>
                         </div>
                     </TabsContent>
 
@@ -352,7 +376,7 @@ export default function StudioDashboard() {
                                             {signups.map((signup) => (
                                                 <tr key={signup.id}>
                                                     <td className="py-4 text-gray-900 dark:text-white">{signup.name}</td>
-                                                    <td className="py-4 text-gray-900 dark:text-white">{signup.event?.title}</td>
+                                                    <td className="py-4 text-gray-900 dark:text-white">{signup.event?.name}</td>
                                                     <td className="py-4 text-gray-500 dark:text-gray-400">{new Date(signup.created_at).toLocaleDateString()}</td>
                                                     <td className="py-4 text-gray-500 dark:text-gray-400 capitalize">{signup.payment_method}</td>
                                                     <td className="py-4">

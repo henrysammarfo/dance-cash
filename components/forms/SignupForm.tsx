@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useToast } from "@/hooks/use-toast";
 
 const signupSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -31,6 +32,7 @@ interface SignupFormProps {
 export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { toast } = useToast();
     const confirmedCount = currentSignups || 0;
     const isSoldOut = confirmedCount >= capacity;
     const spotsLeft = capacity - confirmedCount;
@@ -78,9 +80,19 @@ export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProp
 
             // Redirect to payment page
             router.push(`/payment/${signup.id}`);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Signup error:', error);
-            // Ideally show toast error here
+            console.error('Error details:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            toast({
+                title: "Signup Failed",
+                description: error.message || "An error occurred during signup. Please try again.",
+                variant: "destructive",
+            });
         } finally {
             setIsLoading(false);
         }

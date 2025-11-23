@@ -36,8 +36,9 @@ async function getEvent(id: string) {
     return data as Event;
 }
 
-export default async function PaymentPage({ params }: { params: { signupId: string } }) {
-    const signup = await getSignup(params.signupId);
+export default async function PaymentPage({ params }: { params: Promise<{ signupId: string }> }) {
+    const { signupId } = await params;
+    const signup = await getSignup(signupId);
 
     if (!signup) {
         notFound();

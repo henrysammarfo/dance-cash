@@ -112,7 +112,12 @@ export function ArtistForm({ onSuccess, initialData }: ArtistFormProps) {
             onSuccess();
         } catch (error: any) {
             console.error('Error saving artist:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
+            console.error('Error details:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
             toast({
                 title: 'Error',
                 description: error.message || error.error_description || 'Failed to save artist',
