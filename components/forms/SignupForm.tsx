@@ -29,6 +29,16 @@ interface SignupFormProps {
     currentSignups: number | null;
 }
 
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
@@ -56,17 +66,23 @@ export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProp
             // For now, we rely on the server-passed prop + optimistic UI
 
             // Insert into Supabase
-            const { data: signup, error } = await supabase
+            // Generate ID client-side to avoid RLS select issue
+            const signupId = generateUUID();
+
+            const payload = {
+                id: signupId,
+                event_id: eventId,
+                attendee_name: data.name,
+                attendee_email: data.email,
+                attendee_phone: data.phone,
+            };
+
+            console.log('Submitting signup payload:', payload);
+
+            // Insert into Supabase
+            const { error } = await supabase
                 .from('signups')
-                .insert({
-                    event_id: eventId,
-                    attendee_name: data.name,
-                    attendee_email: data.email,
-                    attendee_phone: data.phone,
-                    status: 'pending',
-                })
-                .select()
-                .single();
+                .insert(payload);
 
             if (error) throw error;
 
@@ -79,9 +95,10 @@ export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProp
             }
 
             // Redirect to payment page
-            router.push(`/payment/${signup.id}`);
+            router.push(`/payment/${signupId}`);
         } catch (error: any) {
-            console.error('Signup error:', error);
+            console.error('Signup error object:', error);
+            console.error('Signup error stringified:', JSON.stringify(error, null, 2));
             console.error('Error details:', {
                 message: error.message,
                 details: error.details,

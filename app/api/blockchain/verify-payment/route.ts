@@ -1,100 +1,188 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { TestNetWallet, Wallet } from 'mainnet-js';
-import { ACTIVE_NETWORK } from '@/lib/config';
-import { mintEventNFT } from '@/lib/cashtokens';
-import { generateCashStampQR } from '@/lib/cashtamps';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
         const { address, signupId } = await request.json();
 
         if (!address || !signupId) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'Missing required fields' },
+                { status: 400 }
+            );
         }
 
-        // Check database first to see if already confirmed
-        const { data: existing } = await supabase
-            .from('signups')
-            .select('status')
-            .eq('id', signupId)
-            .single();
+        // Import mainnet-js to check the blockchain
+        const { TestNetWallet, Wallet } = await import('mainnet-js');
 
-        if (existing?.status === 'confirmed') {
-            return NextResponse.json({ confirmed: true });
-        }
+        const network = process.env.NEXT_PUBLIC_BCH_NETWORK || 'chipnet';
+        const WalletClass = network === 'mainnet' ? Wallet : TestNetWallet;
 
-        // Check blockchain
-        // We need to reconstruct the wallet to check balance/history
-        // In a real app, we'd track xpub or import the specific address to a watch-only wallet
-        // For this MVP, we'll just check the address balance using a watch-only wallet instance
-        const wallet = ACTIVE_NETWORK === 'chipnet'
-            ? await TestNetWallet.watchOnly(address)
-            : await Wallet.watchOnly(address);
+        // Create a wallet instance to check the address balance
+        const wallet = await WalletClass.watchOnly(address);
+        const balance = await wallet.getBalance('bch');
 
-        const balance = Number(await wallet.getBalance('bch'));
-
-        // Get expected amount
-        const { data: paymentAddr } = await supabase
+        // Get the expected amount from the database
+        const { data: paymentAddress, error: fetchError } = await supabase
             .from('payment_addresses')
             .select('amount_bch')
             .eq('address', address)
+            .eq('signup_id', signupId)
             .single();
 
-        if (!paymentAddr) {
-            return NextResponse.json({ error: 'Payment address not found' }, { status: 404 });
+        if (fetchError || !paymentAddress) {
+            return NextResponse.json(
+                { error: 'Payment address not found' },
+                { status: 404 }
+            );
         }
 
-        // Allow for small variance or just check if > 0 for testnet ease
-        if (balance >= paymentAddr.amount_bch) {
-            // Payment Confirmed!
+        const expectedAmount = paymentAddress.amount_bch;
+        const confirmed = balance >= expectedAmount;
 
-            // 1. Update Signup Status
-            await supabase
+        if (confirmed) {
+            // Update the signup to confirmed
+            const { error: updateError } = await supabase
                 .from('signups')
                 .update({
-                    status: 'confirmed',
                     confirmed_at: new Date().toISOString(),
+                    payment_method: 'bch',
                     price_paid_bch: balance,
-                    payment_method: 'bch'
                 })
                 .eq('id', signupId);
 
-            // 2. Mint NFT
-            // We need the event name for metadata
-            const { data: signupData } = await supabase
+            if (updateError) {
+                console.error('Error updating signup:', updateError);
+                throw updateError;
+            }
+
+            // Get event details for NFT metadata
+            const { data: signup } = await supabase
                 .from('signups')
-                .select('*, events(name)')
+                .select('event_id, attendee_name, attendee_email')
                 .eq('id', signupId)
                 .single();
 
-            const nft = await mintEventNFT(address, signupData?.events?.name || 'Event Ticket');
+            if (signup) {
+                const { data: event } = await supabase
+                    .from('events')
+                    .select('name, date, location, studio_id, banner_url')
+                    .eq('id', signup.event_id)
+                    .single();
 
-            await supabase
-                .from('signups')
-                .update({ nft_txid: nft.txId })
-                .eq('id', signupId);
+                if (event) {
+                    // Mint Real On-Chain NFT Ticket using BCH CashTokens
+                    try {
+                        const serverWif = process.env.SERVER_WALLET_WIF;
+                        if (!serverWif) {
+                            throw new Error('SERVER_WALLET_WIF not configured');
+                        }
 
-            // 3. Generate CashStamp
-            // We need studio address
-            // For now, use a placeholder or fetch from event->studio
-            const cashstamp = await generateCashStampQR('bchtest:studio_address', balance * 0.05); // 5% cashback
+                        const serverWallet = await WalletClass.fromWIF(serverWif);
 
-            await supabase
-                .from('cashtamps')
-                .insert({
-                    signup_id: signupId,
-                    qr_code_url: cashstamp.qrCodeUrl,
-                    status: 'active',
-                    amount_bch: balance * 0.05
-                });
+                        // Create NFT metadata with image (like Sui NFTs)
+                        const nftMetadata = {
+                            name: `${event.name} - Ticket`,
+                            description: `Event ticket for ${event.name} on ${event.date}`,
+                            image: event.banner_url || '', // Event banner image
+                            attendee: signup.attendee_name,
+                            event: event.name,
+                            date: event.date,
+                            location: event.location,
+                            signupId: signupId,
+                            type: 'event-ticket',
+                        };
 
-            return NextResponse.json({ confirmed: true });
+                        const commitment = Buffer.from(JSON.stringify(nftMetadata)).toString('hex');
+
+                        // Create CashToken NFT genesis
+                        const genesisResponse = await serverWallet.tokenGenesis({
+                            cashaddr: serverWallet.cashaddr!,
+                            amount: 1, // 1 NFT
+                            value: 1000, // 1000 sats for the UTXO
+                            capability: 'none' as any, // NFT with no minting capability
+                            commitment: commitment,
+                        });
+
+                        console.log('NFT Genesis Response:', genesisResponse);
+
+                        // Get the token ID from the genesis transaction
+                        const tokenId = genesisResponse.tokenIds[0];
+
+                        // Send the NFT to the user's address (the address they paid from)
+                        const userAddress = address;
+
+                        const sendResponse = await serverWallet.send([
+                            {
+                                cashaddr: userAddress,
+                                value: 1000, // 1000 sats
+                                tokenId: tokenId,
+                                tokenAmount: 1, // Send 1 NFT
+                            }
+                        ]);
+
+                        console.log('NFT sent to user:', sendResponse);
+
+                        // Store the real NFT transaction ID
+                        await supabase
+                            .from('signups')
+                            .update({
+                                nft_txid: sendResponse.txId,
+                                transaction_id: sendResponse.txId
+                            })
+                            .eq('id', signupId);
+
+                        console.log('Real on-chain NFT minted and sent:', sendResponse.txId);
+                    } catch (nftError: any) {
+                        console.error('Error minting on-chain NFT:', nftError);
+                        console.error('NFT Error details:', nftError.message, nftError.stack);
+                        // Store error for debugging
+                        await supabase
+                            .from('signups')
+                            .update({
+                                nft_txid: `error_${Date.now()}`,
+                            })
+                            .eq('id', signupId);
+                    }
+
+                    // Create CashStamp Reward
+                    try {
+                        const cashStampAmount = balance * 0.1; // 10% cashback
+                        const { generateCashStampQR } = await import('@/lib/cashtamps');
+
+                        const cashStamp = await generateCashStampQR(
+                            event.studio_id,
+                            cashStampAmount
+                        );
+
+                        // Store CashStamp in database
+                        await supabase
+                            .from('cashtamps')
+                            .insert({
+                                signup_id: signupId,
+                                qr_code_data: cashStamp.qrCodeUrl,
+                                amount_bch: cashStampAmount,
+                                claimed: false,
+                            });
+
+                        console.log('CashStamp created:', cashStamp.id);
+                    } catch (cashStampError) {
+                        console.error('Error creating CashStamp:', cashStampError);
+                    }
+                }
+            }
         }
 
-        return NextResponse.json({ confirmed: false, balance });
-    } catch (error) {
+        return NextResponse.json({
+            confirmed,
+            balance,
+            expectedAmount,
+        });
+    } catch (error: any) {
         console.error('Error verifying payment:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json(
+            { error: error.message || 'Failed to verify payment' },
+            { status: 500 }
+        );
     }
 }

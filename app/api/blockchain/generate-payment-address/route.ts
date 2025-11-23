@@ -19,7 +19,10 @@ export async function POST(request: Request) {
             : await Wallet.newRandom();
 
         const address = wallet.getDepositAddress();
-        const privateKey = wallet.privateKey; // Store this securely if needed for sweeping
+
+        // Calculate expiration (24 hours from now)
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
 
         // Store in Supabase
         const { error } = await supabase
@@ -28,8 +31,7 @@ export async function POST(request: Request) {
                 signup_id: signupId,
                 address: address,
                 amount_bch: amountBch,
-                status: 'awaiting_payment',
-                // In a real app, store privateKey encrypted or use xpub derivation
+                expires_at: expiresAt.toISOString(),
             });
 
         if (error) throw error;

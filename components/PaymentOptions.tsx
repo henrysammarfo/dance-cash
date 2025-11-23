@@ -1,27 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Wallet, Check, Copy, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { BCH_DISCOUNT_PERCENT, BCH_TO_USD_RATE } from '@/lib/config';
+import { BCH_DISCOUNT_PERCENT } from '@/lib/config';
 import QRCode from 'qrcode';
 import Image from 'next/image';
 
 interface PaymentOptionsProps {
     priceUsd: number;
     signupId: string;
-    onPaymentComplete: () => void;
 }
 
-export function PaymentOptions({ priceUsd, signupId, onPaymentComplete }: PaymentOptionsProps) {
+export function PaymentOptions({ priceUsd, signupId }: PaymentOptionsProps) {
     const [method, setMethod] = useState<'bch' | 'fiat'>('bch');
     const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
     const [paymentAddress, setPaymentAddress] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [liveBchRate, setLiveBchRate] = useState<number | null>(null);
+    const [isFetchingRate, setIsFetchingRate] = useState(true);
 
-    const priceBch = (priceUsd * (1 - BCH_DISCOUNT_PERCENT / 100)) / BCH_TO_USD_RATE;
+    // Fetch live BCH price on component mount
+    useEffect(() => {
+        const fetchBchPrice = async () => {
+            try {
+                const response = await fetch('/api/bch-price');
+                const data = await response.json();
+                setLiveBchRate(data.bchToUsd);
+            } catch (error) {
+                console.error('Error fetching BCH price:', error);
+                setLiveBchRate(500); // Fallback rate
+            } finally {
+                setIsFetchingRate(false);
+            }
+        };
+
+        fetchBchPrice();
+
+        // Refresh price every 60 seconds
+        const interval = setInterval(fetchBchPrice, 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const bchRate = liveBchRate || 500; // Use live rate or fallback
+    const priceBch = (priceUsd * (1 - BCH_DISCOUNT_PERCENT / 100)) / bchRate;
     const savings = priceUsd * (BCH_DISCOUNT_PERCENT / 100);
 
     const generateAddress = async () => {
@@ -62,7 +86,8 @@ export function PaymentOptions({ priceUsd, signupId, onPaymentComplete }: Paymen
 
                 if (data.confirmed) {
                     clearInterval(interval);
-                    onPaymentComplete();
+                    // Redirect to confirmation page
+                    window.location.href = `/confirmation/${signupId}`;
                 }
             } catch (error) {
                 console.error('Error verifying payment:', error);
@@ -77,8 +102,8 @@ export function PaymentOptions({ priceUsd, signupId, onPaymentComplete }: Paymen
                 <div
                     onClick={() => setMethod('bch')}
                     className={`cursor-pointer p-6 rounded-2xl border-2 transition-all ${method === 'bch'
-                            ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                            : 'border-gray-200 dark:border-gray-800 hover:border-green-200'
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-green-200'
                         }`}
                 >
                     <div className="flex items-center justify-between mb-4">
@@ -97,8 +122,8 @@ export function PaymentOptions({ priceUsd, signupId, onPaymentComplete }: Paymen
                 <div
                     onClick={() => setMethod('fiat')}
                     className={`cursor-pointer p-6 rounded-2xl border-2 transition-all ${method === 'fiat'
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                            : 'border-gray-200 dark:border-gray-800 hover:border-purple-200'
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-purple-200'
                         }`}
                 >
                     <div className="flex items-center justify-between mb-4">
@@ -118,12 +143,24 @@ export function PaymentOptions({ priceUsd, signupId, onPaymentComplete }: Paymen
                     <div className="text-center space-y-6">
                         <div className="space-y-2">
                             <p className="text-gray-500 dark:text-gray-400">Total Amount</p>
-                            <p className="text-4xl font-bold text-gray-900 dark:text-white">
-                                {priceBch.toFixed(8)} BCH
-                            </p>
-                            <p className="text-sm text-green-600 font-medium">
-                                ~${(priceUsd - savings).toFixed(2)} USD
-                            </p>
+                            {isFetchingRate ? (
+                                <div className="flex items-center justify-center gap-2">
+                                    <Loader2 className="animate-spin" size={20} />
+                                    <p className="text-lg text-gray-500">Fetching live BCH rate...</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className="text-4xl font-bold text-gray-900 dark:text-white">
+                                        {priceBch.toFixed(8)} BCH
+                                    </p>
+                                    <p className="text-sm text-green-600 font-medium">
+                                        ~${(priceUsd - savings).toFixed(2)} USD
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        Live rate: 1 BCH = ${bchRate.toFixed(2)} USD
+                                    </p>
+                                </>
+                            )}
                         </div>
 
                         {!qrCodeUrl ? (

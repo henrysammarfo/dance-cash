@@ -114,7 +114,7 @@ export default function StudioDashboard() {
     }
 
     const totalRevenue = signups
-        .filter(s => s.status === 'confirmed')
+        .filter(s => s.confirmed_at)
         .reduce((acc, curr) => acc + (curr.event?.price_usd || 0), 0);
 
     const now = new Date();
@@ -195,10 +195,10 @@ export default function StudioDashboard() {
                                         <div key={signup.id} className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 last:border-0 last:pb-0">
                                             <div className="flex items-center gap-4">
                                                 <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold">
-                                                    {signup.name.charAt(0)}
+                                                    {signup.attendee_name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-900 dark:text-white">{signup.name}</p>
+                                                    <p className="font-medium text-gray-900 dark:text-white">{signup.attendee_name}</p>
                                                     <p className="text-sm text-gray-500 dark:text-gray-400">signed up for {signup.event?.name}</p>
                                                 </div>
                                             </div>
@@ -375,16 +375,16 @@ export default function StudioDashboard() {
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                             {signups.map((signup) => (
                                                 <tr key={signup.id}>
-                                                    <td className="py-4 text-gray-900 dark:text-white">{signup.name}</td>
+                                                    <td className="py-4 text-gray-900 dark:text-white">{signup.attendee_name}</td>
                                                     <td className="py-4 text-gray-900 dark:text-white">{signup.event?.name}</td>
                                                     <td className="py-4 text-gray-500 dark:text-gray-400">{new Date(signup.created_at).toLocaleDateString()}</td>
                                                     <td className="py-4 text-gray-500 dark:text-gray-400 capitalize">{signup.payment_method}</td>
                                                     <td className="py-4">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${signup.status === 'confirmed'
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${signup.confirmed_at
                                                             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                                             : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
                                                             }`}>
-                                                            {signup.status}
+                                                            {signup.confirmed_at ? 'confirmed' : 'pending'}
                                                         </span>
                                                     </td>
                                                 </tr>

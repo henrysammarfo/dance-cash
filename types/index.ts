@@ -39,15 +39,17 @@ export interface Studio {
 
 export interface Signup {
     id: string;
-    created_at: string;
     event_id: string;
-    name: string;
-    email: string;
-    phone?: string;
-    status: 'pending' | 'confirmed' | 'cancelled';
-    payment_method?: 'bch' | 'fiat';
-    payment_status?: 'pending' | 'completed' | 'failed';
-    nft_token_id?: string;
-    nft_tx_id?: string;
+    attendee_name: string;
+    attendee_phone?: string;
+    attendee_email?: string;
+    payment_method?: string;
+    price_paid_usd?: number;
+    price_paid_bch?: number;
+    transaction_id?: string;
+    nft_txid?: string;
+    cashtamp_id?: string;
+    confirmed_at?: string;
+    created_at: string;
     event?: Event;
 }

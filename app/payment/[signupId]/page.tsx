@@ -44,7 +44,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ signup
         notFound();
     }
 
-    if (signup.status === 'confirmed') {
+    if (signup.confirmed_at) {
         redirect(`/confirmation/${signup.id}`);
     }
 
@@ -55,14 +55,14 @@ export default async function PaymentPage({ params }: { params: Promise<{ signup
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-black py-12">
+        <div className="min-h-screen bg-gray-50 dark:bg-black pt-24 pb-12">
             <div className="container mx-auto px-4 max-w-3xl">
                 <Link href={`/signup/${event.id}`} className="inline-flex items-center text-gray-500 hover:text-purple-600 mb-8 transition-colors">
                     <ArrowLeft size={20} className="mr-2" />
                     Back
                 </Link>
 
-                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="bg-white dark:bg-black rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <div className="p-8 border-b border-gray-100 dark:border-gray-800">
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Complete Payment</h1>
                         <p className="text-gray-500 dark:text-gray-400">
@@ -74,8 +74,6 @@ export default async function PaymentPage({ params }: { params: Promise<{ signup
                         <PaymentOptions
                             priceUsd={event.price_usd || 0}
                             signupId={signup.id}
-                            // This will be handled client-side to redirect
-                            onPaymentComplete={() => { }}
                         />
                     </div>
                 </div>
