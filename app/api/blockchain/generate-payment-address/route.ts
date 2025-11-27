@@ -19,7 +19,7 @@ export async function POST(request: Request) {
             : await Wallet.newRandom();
 
         const address = wallet.getDepositAddress();
-        const wif = wallet.privateKey; // Store private key to sweep funds later
+        const wif = wallet.privateKeyWif; // Use privateKeyWif to get correct WIF format for the network
 
         // Calculate expiration (24 hours from now)
         const expiresAt = new Date();

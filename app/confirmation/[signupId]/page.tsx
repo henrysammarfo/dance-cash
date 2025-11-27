@@ -48,9 +48,8 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ s
     }
 
     if (!signup.confirmed_at) {
-        // If not confirmed, redirect back to payment
-        // redirect(`/payment/${signup.id}`);
-        // For testing/demo purposes, we might want to show the page anyway if we manually set it
+        // If not confirmed, redirect back to signup page
+        redirect(`/signup/${signup.event_id}`);
     }
 
     const event = await getEvent(signup.event_id);
@@ -92,7 +91,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ s
                         <div className="p-8 space-y-6">
                             <div className="flex items-center text-gray-600 dark:text-gray-300">
                                 <Calendar size={20} className="mr-3 text-purple-500" />
-                                <span>{format(new Date(event.date), 'EEEE, MMMM d, yyyy')} • {event.time}</span>
+                                <span>{format(new Date(event.date), 'EEEE, MMMM d, yyyy')} • {event.start_time}</span>
                             </div>
                             <div className="flex items-center text-gray-600 dark:text-gray-300">
                                 <MapPin size={20} className="mr-3 text-purple-500" />
@@ -102,7 +101,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ s
                             <div className="border-t border-dashed border-gray-200 dark:border-gray-700 my-6" />
 
                             <div className="text-center">
-                                <p className="text-sm text-gray-500 mb-4">Scan to import to Selene Wallet</p>
+                                <p className="text-sm text-gray-500 mb-4">Transaction QR Code</p>
                                 {/* Placeholder for NFT QR - In real app, this would be the NFT claim link */}
                                 <div className="bg-white p-2 inline-block rounded-xl border border-gray-100 shadow-sm">
                                     <Image
@@ -115,7 +114,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ s
                                 <div className="mt-4 space-y-2">
                                     <p className="text-xs text-gray-400">Token ID</p>
                                     <code className="block text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded text-gray-600 dark:text-gray-300 break-all select-all">
-                                        {signup.nft_txid || 'Pending...'}
+                                        {signup.nft_txid?.startsWith('error') ? 'Minting Failed (Contact Support)' : (signup.nft_txid || 'Pending...')}
                                     </code>
                                     {signup.nft_txid && !signup.nft_txid.startsWith('error') && (
                                         <a
@@ -166,10 +165,13 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ s
                         <ConfirmationActions
                             eventName={event.name}
                             eventDate={event.date}
-                            eventTime={event.time}
+                            eventTime={event.start_time}
                             eventLocation={event.location}
                             eventDescription={event.description}
                             eventUrl={`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${event.id}`}
+                            attendeeName={signup.attendee_name}
+                            signupId={signup.id}
+                            nftTokenId={signup.nft_txid || undefined}
                         />
 
                         <Link href="/events" className="block">

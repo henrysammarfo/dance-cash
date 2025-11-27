@@ -48,6 +48,19 @@ export async function POST(request: NextRequest) {
         const confirmed = balance >= expectedAmount;
 
         if (confirmed) {
+            // Fetch event to get price_usd and event_name
+            const { data: signup } = await supabase
+                .from('signups')
+                .select('event_id')
+                .eq('id', signupId)
+                .single();
+
+            const { data: eventData } = await supabase
+                .from('events')
+                .select('price_usd, name')
+                .eq('id', signup?.event_id)
+                .single();
+
             // Update the signup to confirmed
             const { error: updateError } = await supabase
                 .from('signups')
@@ -55,6 +68,8 @@ export async function POST(request: NextRequest) {
                     confirmed_at: new Date().toISOString(),
                     payment_method: 'bch',
                     price_paid_bch: balance,
+                    price_paid_usd: eventData?.price_usd || 0,
+                    event_name: eventData?.name || 'Unknown Event',
                 })
                 .eq('id', signupId);
 
@@ -63,108 +78,73 @@ export async function POST(request: NextRequest) {
                 throw updateError;
             }
 
-            // Sweep funds to Studio Wallet
-            if (paymentAddress.wif) {
-                try {
-                    // Fetch studio address via event
-                    const { data: signupData } = await supabase
-                        .from('signups')
-                        .select('event:events(studio:studios(bch_address))')
-                        .eq('id', signupId)
-                        .single();
-
-                    const studioAddress = (signupData as any)?.event?.studio?.bch_address;
-
-                    if (studioAddress) {
-                        console.log(`Sweeping funds to studio: ${studioAddress}`);
-                        const tempWallet = await WalletClass.fromWIF(paymentAddress.wif);
-                        await tempWallet.sendMax(studioAddress);
-                        console.log('Funds swept successfully');
-                    } else {
-                        console.warn('No studio address found to sweep funds to');
-                    }
-                } catch (sweepError) {
-                    console.error('Error sweeping funds:', sweepError);
-                    // Continue execution - don't fail the user's confirmation just because sweep failed
-                }
-            }
-
-            // Get event details for NFT metadata
-            const { data: signup } = await supabase
+            // Fetch signup and event for NFT minting and email
+            const { data: signupFull } = await supabase
                 .from('signups')
-                .select('event_id, attendee_name, attendee_email')
+                .select('*')
                 .eq('id', signupId)
                 .single();
 
-            if (signup) {
+            if (signupFull) {
                 const { data: event } = await supabase
                     .from('events')
-                    .select('name, date, time, location, studio_id, banner_url')
-                    .eq('id', signup.event_id)
+                    .select('name, date, start_time, location, studio_id, banner_url, studio:studios(bch_address)')
+                    .eq('id', signupFull.event_id)
                     .single();
 
                 if (event) {
                     // Mint Real On-Chain NFT Ticket using BCH CashTokens
                     try {
-                        const serverWif = process.env.SERVER_WALLET_WIF;
-                        if (!serverWif) {
-                            throw new Error('SERVER_WALLET_WIF not configured');
-                        }
+                        const tempWallet = await WalletClass.fromWIF(paymentAddress.wif);
 
-                        const serverWallet = await WalletClass.fromWIF(serverWif);
+                        console.log('=== NFT MINTING START ===');
+                        console.log('Signup ID:', signupId);
 
-                        // Create minimal NFT metadata (CashToken commitment limit is 40 bytes)
-                        // Use short field names and truncate values to fit
-                        const nftMetadata = {
-                            e: event.name.substring(0, 15), // Event name (max 15 chars)
-                            a: signup.attendee_name.split(' ')[0], // First name only
-                        };
+                        const commitment = signupId.replace(/-/g, '');
+                        console.log('Commitment (hex):', commitment);
 
-                        const commitment = Buffer.from(JSON.stringify(nftMetadata)).toString('hex');
-
-                        // Create CashToken NFT genesis
-                        const serverAddress = await serverWallet.getDepositAddress();
-                        const genesisResponse = await serverWallet.tokenGenesis({
-                            cashaddr: serverAddress,
-                            amount: BigInt(1), // 1 NFT
-                            value: 1000, // 1000 sats for the UTXO
-                            capability: 'none', // NFT with no minting capability
+                        const genesisResponse = await tempWallet.tokenGenesis({
+                            cashaddr: address,
+                            amount: BigInt(1),
+                            value: 1000,
+                            capability: 'none',
                             commitment: commitment,
                         }) as any;
 
                         console.log('NFT Genesis Response:', genesisResponse);
+                        console.log('=== NFT MINTING SUCCESS ===');
 
-                        // Get the token ID from the genesis transaction
-                        const tokenId = genesisResponse.tokenIds[0];
+                        const txId = genesisResponse.txId || genesisResponse.tokenId;
 
-                        // Send the NFT to the user's address (the address they paid from)
-                        const userAddress = address;
-
-                        const sendResponse = await serverWallet.send([
-                            {
-                                cashaddr: userAddress,
-                                value: 1000, // 1000 sats
-                                tokenId: tokenId,
-                                amount: BigInt(1), // Send 1 NFT
-                            } as any
-                        ]);
-
-                        console.log('NFT sent to user:', sendResponse);
-
-                        // Store the real NFT transaction ID
                         await supabase
                             .from('signups')
                             .update({
-                                nft_txid: sendResponse.txId,
-                                transaction_id: sendResponse.txId
+                                nft_txid: txId,
+                                transaction_id: txId
                             })
                             .eq('id', signupId);
 
-                        console.log('Real on-chain NFT minted and sent:', sendResponse.txId);
+                        console.log('Real on-chain NFT minted and sent:', txId);
+
+                        // Sweep REMAINING funds to Studio Wallet
+                        try {
+                            const studioAddress = (event as any)?.studio?.bch_address;
+
+                            if (studioAddress) {
+                                console.log(`Sweeping remaining funds to studio: ${studioAddress}`);
+                                await tempWallet.sendMax(studioAddress);
+                                console.log('Funds swept successfully');
+                            } else {
+                                console.warn('No studio address found to sweep funds to');
+                            }
+                        } catch (sweepError) {
+                            console.error('Error sweeping funds:', sweepError);
+                        }
+
                     } catch (nftError: any) {
+                        console.error('=== NFT MINTING FAILED ===');
                         console.error('Error minting on-chain NFT:', nftError);
-                        console.error('NFT Error details:', nftError.message, nftError.stack);
-                        // Store error for debugging
+
                         const errorMsg = nftError?.message || nftError?.toString() || 'Unknown error';
                         await supabase
                             .from('signups')
@@ -172,11 +152,20 @@ export async function POST(request: NextRequest) {
                                 nft_txid: `error_${errorMsg.substring(0, 50)}`,
                             })
                             .eq('id', signupId);
+
+                        // Try to sweep funds even if minting failed
+                        try {
+                            const tempWallet = await WalletClass.fromWIF(paymentAddress.wif);
+                            const studioAddress = (event as any)?.studio?.bch_address;
+                            if (studioAddress) {
+                                await tempWallet.sendMax(studioAddress);
+                            }
+                        } catch (e) { console.error('Sweep failed after mint error', e); }
                     }
 
                     // Create CashStamp Reward
                     try {
-                        const cashStampAmount = Number(balance) * 0.1; // 10% cashback
+                        const cashStampAmount = Number(balance) * 0.1;
                         const { generateCashStampQR } = await import('@/lib/cashtamps');
 
                         const cashStamp = await generateCashStampQR(
@@ -184,7 +173,6 @@ export async function POST(request: NextRequest) {
                             cashStampAmount
                         );
 
-                        // Store CashStamp in database
                         await supabase
                             .from('cashtamps')
                             .insert({
@@ -201,14 +189,14 @@ export async function POST(request: NextRequest) {
 
                     // Send confirmation email
                     try {
-                        if (signup.attendee_email) {
+                        if (signupFull.attendee_email) {
                             const { sendConfirmationEmail } = await import('@/lib/email');
                             const emailResult = await sendConfirmationEmail({
-                                to: signup.attendee_email,
-                                attendeeName: signup.attendee_name,
+                                to: signupFull.attendee_email,
+                                attendeeName: signupFull.attendee_name,
                                 eventName: event.name,
                                 eventDate: event.date,
-                                eventTime: event.time || 'TBD',
+                                eventTime: event.start_time || 'TBD',
                                 eventLocation: event.location,
                                 nftTxid: (await supabase.from('signups').select('nft_txid').eq('id', signupId).single()).data?.nft_txid,
                                 network: process.env.NEXT_PUBLIC_BCH_NETWORK || 'chipnet',
@@ -224,7 +212,6 @@ export async function POST(request: NextRequest) {
                         }
                     } catch (emailError) {
                         console.error('Error sending confirmation email:', emailError);
-                        // Continue execution - don't fail the confirmation just because email failed
                     }
                 }
             }

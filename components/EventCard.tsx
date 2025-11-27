@@ -84,7 +84,7 @@ export function EventCard({ event }: EventCardProps) {
                         <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 mb-6 flex-grow">
                             <div className="flex items-center">
                                 <Calendar size={16} className="mr-3 text-purple-500" />
-                                <span>{event.time}</span>
+                                <span>{event.start_time}</span>
                             </div>
                             <div className="flex items-center">
                                 <MapPin size={16} className="mr-3 text-purple-500" />

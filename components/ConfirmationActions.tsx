@@ -1,17 +1,21 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Calendar, Share2, Check } from 'lucide-react';
+import { Calendar, Share2, Check, Download } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import { generateTicketPDF } from '@/lib/pdf';
 
 interface ConfirmationActionsProps {
     eventName: string;
-    eventDate: string; // ISO string
+    eventDate: string;
     eventTime: string;
     eventLocation: string;
     eventDescription?: string;
     eventUrl: string;
+    attendeeName: string;
+    signupId: string;
+    nftTokenId?: string;
 }
 
 export function ConfirmationActions({
@@ -20,7 +24,10 @@ export function ConfirmationActions({
     eventTime,
     eventLocation,
     eventDescription,
-    eventUrl
+    eventUrl,
+    attendeeName,
+    signupId,
+    nftTokenId,
 }: ConfirmationActionsProps) {
     const [copied, setCopied] = useState(false);
     const { toast } = useToast();
@@ -57,19 +64,28 @@ export function ConfirmationActions({
     };
 
     const handleAddToCalendar = () => {
-        // Parse date and time
         const dateObj = new Date(eventDate);
-
-        // Format for Google Calendar: YYYYMMDDTHHMMSSZ
-        // This is a simplified version. Ideally we'd parse the time string properly.
-        // For now, let's assume the event is 2 hours long and use the date object.
-
         const startTime = dateObj.toISOString().replace(/-|:|\.\d\d\d/g, "");
         const endTime = new Date(dateObj.getTime() + 2 * 60 * 60 * 1000).toISOString().replace(/-|:|\.\d\d\d/g, "");
-
         const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventName)}&dates=${startTime}/${endTime}&details=${encodeURIComponent(eventDescription || '')}&location=${encodeURIComponent(eventLocation)}`;
-
         window.open(googleCalendarUrl, '_blank');
+    };
+
+    const handleDownload = () => {
+        // Use NFT token ID for verification QR code if available, otherwise use event URL
+        const qrData = nftTokenId
+            ? `https://chipnet.imaginary.cash/token/${nftTokenId}`
+            : eventUrl;
+
+        generateTicketPDF({
+            eventName,
+            eventDate: new Date(eventDate).toLocaleDateString(),
+            eventTime,
+            eventLocation,
+            attendeeName: attendeeName,
+            ticketId: signupId.substring(0, 8).toUpperCase(),
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`
+        });
     };
 
     return (
@@ -89,6 +105,14 @@ export function ConfirmationActions({
             >
                 {copied ? <Check size={20} className="text-green-600" /> : <Share2 size={20} className="text-blue-600 dark:text-blue-400" />}
                 <span className="text-gray-700 dark:text-gray-300">{copied ? 'Copied!' : 'Share Event'}</span>
+            </Button>
+            <Button
+                variant="outline"
+                className="col-span-2 h-auto py-4 flex flex-col items-center justify-center gap-2 hover:bg-green-50 dark:hover:bg-green-900/20 border-gray-200 dark:border-gray-700"
+                onClick={handleDownload}
+            >
+                <Download size={20} className="text-green-600 dark:text-green-400" />
+                <span className="text-gray-700 dark:text-gray-300">Download Ticket</span>
             </Button>
         </div>
     );
