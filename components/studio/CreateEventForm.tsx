@@ -24,7 +24,8 @@ const eventSchema = z.object({
         today.setHours(0, 0, 0, 0);
         return date >= today;
     }, 'Date must be in the future or today'),
-    time: z.string().min(1, 'Time is required'),
+    start_time: z.string().min(1, 'Start time is required'),
+    end_time: z.string().min(1, 'End time is required'),
     location: z.string().min(3, 'Location is required'),
     style: z.string().min(1, 'Style is required'),
     teacher: z.string().min(2, 'Teacher name is required'),
@@ -83,7 +84,8 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
             name: initialData?.name || '',
             description: initialData?.description || '',
             date: initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : '',
-            time: initialData?.time || '',
+            start_time: initialData?.start_time || '',
+            end_time: initialData?.end_time || '',
             location: initialData?.location || '',
             style: initialData?.style || '',
             teacher: initialData?.teacher || '',
@@ -136,13 +138,15 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                         name: data.name,
                         description: data.description,
                         date: data.date,
-                        time: data.time,
+                        start_time: data.start_time,
+                        end_time: data.end_time,
                         location: data.location,
                         style: data.style,
                         teacher: data.teacher,
                         price_usd: data.price,
                         capacity: data.capacity,
                         banner_url: imageUrl,
+                        artist_id: data.artist_ids && data.artist_ids.length > 0 ? data.artist_ids[0] : null,
                     })
                     .eq('id', initialData.id);
 
@@ -174,13 +178,15 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                         name: data.name,
                         description: data.description,
                         date: data.date,
-                        time: data.time,
+                        start_time: data.start_time,
+                        end_time: data.end_time,
                         location: data.location,
                         style: data.style,
                         teacher: data.teacher,
                         price_usd: data.price,
                         capacity: data.capacity,
                         banner_url: imageUrl,
+                        artist_id: data.artist_ids && data.artist_ids.length > 0 ? data.artist_ids[0] : null,
                     })
                     .select()
                     .single();
@@ -188,12 +194,19 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                 if (error) throw error;
 
                 // Insert artists
+                console.log('Creating event with artists:', data.artist_ids);
                 if (data.artist_ids && data.artist_ids.length > 0) {
                     const artistInserts = data.artist_ids.map((artistId: string) => ({
                         event_id: newEvent.id,
                         artist_id: artistId
                     }));
-                    await supabase.from('event_artists').insert(artistInserts);
+                    console.log('Inserting into event_artists:', artistInserts);
+                    const { error: artistError } = await supabase.from('event_artists').insert(artistInserts);
+                    if (artistError) {
+                        console.error('Error inserting event_artists:', artistError);
+                    } else {
+                        console.log('Successfully inserted event_artists');
+                    }
                 }
 
                 toast({
@@ -275,13 +288,28 @@ export function CreateEventForm({ initialData }: CreateEventFormProps) {
                                 </FormItem>
                             )}
                         />
+                    </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                             control={form.control}
-                            name="time"
+                            name="start_time"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Time</FormLabel>
+                                    <FormLabel>Start Time</FormLabel>
+                                    <FormControl>
+                                        <Input type="time" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="end_time"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>End Time</FormLabel>
                                     <FormControl>
                                         <Input type="time" {...field} />
                                     </FormControl>

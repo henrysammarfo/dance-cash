@@ -64,9 +64,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const isSoldOut = spotsLeft === 0;
 
   // Check if event has ended (past date + time)
-  const eventDateTime = new Date(`${event.date}T${event.time}`);
+  // Check if event has ended (past date + time + 3 hours buffer)
+  const eventDateTime = new Date(`${event.date}T${event.start_time}`);
+  // Add 3 hours to account for event duration
+  const eventEndTime = new Date(eventDateTime.getTime() + 3 * 60 * 60 * 1000);
   const now = new Date();
-  const hasEnded = now > eventDateTime;
+  const hasEnded = now > eventEndTime;
 
   // Helper to get all artists (from multiple selection or legacy single selection)
   const artists = event.event_artists?.map(ea => ea.artist) || (event.artist ? [event.artist] : []);
@@ -75,7 +78,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: event.name,
-    startDate: `${event.date}T${event.time || '00:00'}`,
+    startDate: `${event.date}T${event.start_time || '00:00'}`,
     endDate: `${event.date}T23:59`,
     eventStatus: hasEnded ? 'https://schema.org/EventCancelled' : (isSoldOut ? 'https://schema.org/EventSoldOut' : 'https://schema.org/EventScheduled'),
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
@@ -255,7 +258,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                   <span className="text-gray-600 dark:text-gray-400 flex items-center">
                     <Clock size={16} className="mr-2" /> Time
                   </span>
-                  <span className="font-medium">{event.time}</span>
+                  <span className="font-medium">{event.start_time}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400 flex items-center">

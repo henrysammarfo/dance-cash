@@ -1,9 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
-import { Instagram, Globe, Calendar, MapPin } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { Instagram, Globe, Calendar } from 'lucide-react';
 
 // Revalidate every hour
 export const revalidate = 3600;
@@ -18,14 +16,52 @@ async function getArtist(id: string) {
     if (!artist) return null;
 
     // Fetch upcoming events for this artist
-    const { data: events } = await supabase
+    // Check BOTH direct assignment (artist_id) AND featured artists (event_artists table)
+    const { data: directEvents } = await supabase
         .from('events')
         .select('*')
         .eq('artist_id', id)
         .gte('date', new Date().toISOString())
         .order('date', { ascending: true });
 
-    return { artist, events: events || [] };
+    // Fetch events where this artist is in event_artists table
+    const { data: featuredData } = await supabase
+        .from('event_artists')
+        .select('event_id')
+        .eq('artist_id', id);
+
+    // Fetch the actual event details for featured events
+    let featuredEvents: any[] = [];
+    if (featuredData && featuredData.length > 0) {
+        const eventIds = featuredData.map((item: any) => item.event_id);
+        const { data: eventsData } = await supabase
+            .from('events')
+            .select('*')
+            .in('id', eventIds)
+            .gte('date', new Date().toISOString());
+
+        featuredEvents = eventsData || [];
+    }
+
+    // Combine both arrays
+    const allEvents = [...(directEvents || []), ...featuredEvents];
+
+    // Deduplicate by ID
+    const uniqueEvents = Array.from(
+        new Map(allEvents.map(item => [item.id, item])).values()
+    );
+
+    // Sort by date
+    uniqueEvents.sort((a: any, b: any) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    console.log('Artist ID:', id);
+    console.log('Direct events:', directEvents?.length || 0);
+    console.log('Featured events:', featuredEvents.length);
+    console.log('Total unique events:', uniqueEvents.length);
+
+    return { artist, events: uniqueEvents };
 }
 
 export default async function ArtistPage({ params }: { params: Promise<{ id: string }> }) {

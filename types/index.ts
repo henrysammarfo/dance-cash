@@ -23,7 +23,8 @@ export interface Event {
     artist_id?: string;
     artist?: Artist;
     event_artists?: { artist: Artist }[];
-    time: string;
+    start_time: string;
+    end_time: string;
     style: string;
     teacher: string;
     recurring?: boolean;
@@ -53,4 +54,6 @@ export interface Signup {
     confirmed_at?: string;
     created_at: string;
     event?: Event;
+    event_name?: string;
+    studio_id?: string;
 }

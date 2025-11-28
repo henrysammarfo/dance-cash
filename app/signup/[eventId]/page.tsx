@@ -36,7 +36,7 @@ export default async function SignupPage({ params }: { params: Promise<{ eventId
         .from('signups')
         .select('*', { count: 'exact', head: true })
         .eq('event_id', eventId)
-        .eq('status', 'confirmed');
+        .not('confirmed_at', 'is', null);
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black pt-24 pb-12">
@@ -61,7 +61,7 @@ export default async function SignupPage({ params }: { params: Promise<{ eventId
                                 <h2 className="text-2xl font-bold mb-2">{event.name}</h2>
                                 <div className="flex items-center text-sm text-white/90">
                                     <Calendar size={16} className="mr-2" />
-                                    <span>{format(new Date(event.date), 'MMMM d, yyyy')} • {event.time}</span>
+                                    <span>{format(new Date(event.date), 'MMMM d, yyyy')} • {event.start_time}</span>
                                 </div>
                             </div>
                         </div>

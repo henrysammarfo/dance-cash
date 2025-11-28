@@ -55,17 +55,14 @@ export default function StudioDashboard() {
 
             if (artistsData) setArtists(artistsData);
 
-            // Fetch Signups for these events
-            if (eventsData && eventsData.length > 0) {
-                const eventIds = eventsData.map(e => e.id);
-                const { data: signupsData } = await supabase
-                    .from('signups')
-                    .select('*, event:events(*)')
-                    .in('event_id', eventIds)
-                    .order('created_at', { ascending: false });
+            // Fetch ALL Signups for this studio (lifetime stats, including deleted events)
+            const { data: signupsData } = await supabase
+                .from('signups')
+                .select('*, event:events(*)')
+                .eq('studio_id', session.user.id)
+                .order('created_at', { ascending: false });
 
-                if (signupsData) setSignups(signupsData);
-            }
+            if (signupsData) setSignups(signupsData);
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
         } finally {
@@ -83,7 +80,7 @@ export default function StudioDashboard() {
 
         if (error) {
             console.error('Error deleting event:', error);
-            alert('Failed to delete event');
+            alert(`Failed to delete event: ${error.message || JSON.stringify(error)}`);
         } else {
             fetchDashboardData();
         }
@@ -115,7 +112,7 @@ export default function StudioDashboard() {
 
     const totalRevenue = signups
         .filter(s => s.confirmed_at)
-        .reduce((acc, curr) => acc + (curr.event?.price_usd || 0), 0);
+        .reduce((acc, curr) => acc + (curr.price_paid_usd || 0), 0);
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -199,7 +196,7 @@ export default function StudioDashboard() {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-gray-900 dark:text-white">{signup.attendee_name}</p>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">signed up for {signup.event?.name}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">signed up for {signup.event?.name || signup.event_name || 'Deleted Event'}</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
@@ -241,7 +238,7 @@ export default function StudioDashboard() {
                                                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{event.name}</h3>
                                                     <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm">
                                                         <Calendar className="h-4 w-4 mr-2" />
-                                                        {new Date(event.date).toLocaleDateString()} {event.time && `at ${event.time}`}
+                                                        {new Date(event.date).toLocaleDateString()} {event.start_time && `at ${event.start_time}`}
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
@@ -376,7 +373,7 @@ export default function StudioDashboard() {
                                             {signups.map((signup) => (
                                                 <tr key={signup.id}>
                                                     <td className="py-4 text-gray-900 dark:text-white">{signup.attendee_name}</td>
-                                                    <td className="py-4 text-gray-900 dark:text-white">{signup.event?.name}</td>
+                                                    <td className="py-4 text-gray-900 dark:text-white">{signup.event?.name || signup.event_name || 'Deleted Event'}</td>
                                                     <td className="py-4 text-gray-500 dark:text-gray-400">{new Date(signup.created_at).toLocaleDateString()}</td>
                                                     <td className="py-4 text-gray-500 dark:text-gray-400 capitalize">{signup.payment_method}</td>
                                                     <td className="py-4">

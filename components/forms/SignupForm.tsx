@@ -62,16 +62,23 @@ export function SignupForm({ eventId, capacity, currentSignups }: SignupFormProp
 
         setIsLoading(true);
         try {
-            // Double check capacity on client side before submission (optional but good)
-            // For now, we rely on the server-passed prop + optimistic UI
+            // Fetch event to get studio_id
+            const { data: event, error: eventError } = await supabase
+                .from('events')
+                .select('studio_id')
+                .eq('id', eventId)
+                .single();
 
-            // Insert into Supabase
+            if (eventError) throw eventError;
+            if (!event) throw new Error('Event not found');
+
             // Generate ID client-side to avoid RLS select issue
             const signupId = generateUUID();
 
             const payload = {
                 id: signupId,
                 event_id: eventId,
+                studio_id: event.studio_id,
                 attendee_name: data.name,
                 attendee_email: data.email,
                 attendee_phone: data.phone,
