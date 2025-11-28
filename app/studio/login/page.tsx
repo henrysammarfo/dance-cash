@@ -1,8 +1,25 @@
+'use client';
+
 import { StudioLoginForm } from '@/components/auth/StudioLoginForm';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function StudioLoginPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                router.replace('/studio/dashboard');
+            }
+        };
+        checkSession();
+    }, [router]);
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-black flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
